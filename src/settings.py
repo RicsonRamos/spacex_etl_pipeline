@@ -8,7 +8,7 @@ def load_config():
     :return: A dictionary containing the configuration.
     :raises FileNotFoundError: If the configuration file is not found.
     """
-    settings_path = Path(__file__).parent / 'config.yaml'
+    settings_path = Path("config/settings.yaml")
 
     if not settings_path.exists():
         raise FileNotFoundError(f"Configuration file not found at {settings_path}")

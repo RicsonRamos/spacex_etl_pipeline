@@ -1,0 +1,8 @@
+2026-02-12 17:16:21,001 - INFO - extractor - Fetching data from https://api.spacexdata.com/v4/launches
+2026-02-12 17:16:22,162 - INFO - extractor - Data saved to data\raw\launches_20260212_171622.json
+2026-02-12 17:16:22,163 - INFO - extractor - Fetching data from https://api.spacexdata.com/v4/rockets
+2026-02-12 17:16:22,758 - INFO - extractor - Data saved to data\raw\rockets_20260212_171622.json
+2026-02-12 17:32:45,906 - INFO - extractor - Fetching data from https://api.spacexdata.com/v4/launches
+2026-02-12 17:32:47,111 - INFO - extractor - Data saved to data\raw\launches_20260212_173247.json
+2026-02-12 17:32:47,112 - INFO - extractor - Fetching data from https://api.spacexdata.com/v4/rockets
+2026-02-12 17:32:47,923 - INFO - extractor - Data saved to data\raw\rockets_20260212_173247.json

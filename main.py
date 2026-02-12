@@ -1,17 +1,23 @@
-from extract.extract import extract_all
-from src.transform import transform_rockets
-from src.load import load_tables
+from src.settings import load_config
+from src.extract.extract import SpaceXExtractor
+from src.transform.spacex_transformer import SpaceXTransformer
 
 
 def main():
 
-    raw = extract_all()
+    config = load_config()
 
-    rockets_tables = transform_rockets(raw["rockets"])
+    extractor = SpaceXExtractor(config)
+    transformer = SpaceXTransformer()
 
-    load_tables(rockets_tables)
+    raw = extractor.fetch_all()
 
-    print("ETL executado com sucesso")
+    rockets_tables = transformer.transform_rockets(
+        raw["rockets"]
+    )
+
+    for name, df in rockets_tables.items():
+        print(name, df.shape)
 
 
 if __name__ == "__main__":

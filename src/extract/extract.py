@@ -10,8 +10,8 @@ class SpaceXExtractor:
         self.base_url = config["api"]["base_url"]
         self.endpoints = config["api"]["endpoints"]
 
-        self.timeout = config["api"]["timeout"]
-        self.retries = config["api"]["retries"]
+        self.timeout = config["pipeline"]["timeout"]
+        self.retries = config["pipeline"]["retries"]
 
         self.raw_data_dir = Path(config["paths"]["raw"])
         self.raw_data_dir.mkdir(parents=True, exist_ok=True)
