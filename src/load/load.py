@@ -1,23 +1,10 @@
-from sqlalchemy import create_engine
-from settings import load_config
+class SpaceXLoader:
+    def __init__(self, engine):
+        self.engine = engine
+    
+    def load_tables(self, tables):
 
-
-config = load_config()
-
-DB_URL = config["database"]["connection_string"]
-
-engine = create_engine(DB_URL)
-
-
-def load_tables(tables: dict):
-
-    for name, df in tables.items():
-
-        df.to_sql(
-            name,
-            engine,
-            if_exists="replace",
-            index=False
-        )
-
-        print(f"✔ Loaded: {name}")
+        for name, df in tables.items():
+            df.to_sql(name, self.engine, index=False, if_exists='append')
+        
+        print(f"Loaded {name}: {len(df)} rows")

@@ -8,10 +8,18 @@ class SpaceXTransformer:
     def __init__(self):
 
         self.logger = setup_logger(
-            'SpaceXTransformer',
-            'transformer.log'
+            "SpaceXTransformer",
+            "transformer.log"
         )
-    
+
+    def _safe_get(self, obj, *keys):
+
+        for k in keys:
+            if obj is None:
+                return None
+            obj = obj.get(k)
+        return obj
+
     def transform_rockets(self, raw_rockets):
 
         rockets = []
@@ -21,127 +29,151 @@ class SpaceXTransformer:
 
         for r in raw_rockets:
 
-            rocket_id = r["id"]
+            rocket_id = r.get("id")
 
-            #  Rockets Table
+            
+            # ROCKETS
+            
             rockets.append({
                 "rocket_id": rocket_id,
-                "name": r["name"],
-                "type": r["type"],
-                "active": r["active"],
-                "stages": r["stages"],
-                "boosters": r["boosters"],
-                "cost_per_launch": r["cost_per_launch"],
-                "success_rate_pct": r["success_rate_pct"],
-                "first_flight": r["first_flight"],
-                "country": r["country"],
-                "company": r["company"],
-                "wikipedia": r["wikipedia"],
-                "description": r["description"],
+                "name": r.get("name"),
+                "type": r.get("type"),
+                "active": int(r.get("active", 0)),
 
-                "height_m": r["height"]["meters"],
-                'diameter_m': r["diameter"]["meters"],
-                "mass_kg": r["mass"]["kg"]
+                "stages": r.get("stages"),
+                "boosters": r.get("boosters"),
+
+                "cost_per_launch": r.get("cost_per_launch"),
+                "success_rate_pct": r.get("success_rate_pct"),
+
+                "first_flight": r.get("first_flight"),
+
+                "country": r.get("country"),
+                "company": r.get("company"),
+
+                "wikipedia": r.get("wikipedia"),
+                "description": r.get("description"),
+
+                "height_m": self._safe_get(r, "height", "meters"),
+                "diameter_m": self._safe_get(r, "diameter", "meters"),
+                "mass_kg": self._safe_get(r, "mass", "kg"),
             })
 
-            # Payloads Table
-            for p in r["payload_weights"]:
+            
+            # PAYLOADS
+            
+            for p in r.get("payload_weights", []):
+
                 payloads.append({
-                    "payload_id": f"{rocket_id}_{p['id']}",
                     "rocket_id": rocket_id,
-                    "name": p["name"],
-                    "kg": p["kg"],
-                    "lb": p["lb"]
+                    "orbit": p.get("id"),
+                    "kg": p.get("kg"),
+                    "lb": p.get("lb")
                 })
 
-            # Images Table
-            for i in r["flickr_images"]:
+            
+            # IMAGES
+            
+            for url in r.get("flickr_images", []):
+
                 images.append({
                     "rocket_id": rocket_id,
-                    "url": i            
+                    "url": url
                 })
 
-            # Engines Table
             
-            e = r["engines"]
+            # ENGINES
+            
+            e = r.get("engines", {})
+
             engines.append({
                 "rocket_id": rocket_id,
-                'type': e["type"],
-                'number': e["number"],
-                'version': e["version"],
-                'layout': e["layout"],
 
-                'thust_sea_level_kN': e["thrust_sea_level"]["kN"],
-                'thust_vacuum_kN': e["thrust_vacuum"]["kN"],
+                "type": e.get("type"),
+                "version": e.get("version"),
+                "layout": e.get("layout"),
 
-                'isp_sl': e["isp"]["sea_level"],
-                'isp_vacuum': e["isp"]["vacuum"],
+                "number": e.get("number"),
 
-                'propellant_1': e["propellant_1"],
-                'propellant_2': e["propellant_2"],
+                "thrust_sl_kn": self._safe_get(e, "thrust_sea_level", "kN"),
+                "thrust_vac_kn": self._safe_get(e, "thrust_vacuum", "kN"),
+
+                "isp_sl": self._safe_get(e, "isp", "sea_level"),
+                "isp_vac": self._safe_get(e, "isp", "vacuum"),
+
+                "propellant_1": e.get("propellant_1"),
+                "propellant_2": e.get("propellant_2"),
             })
 
-        self.logger.info(f"Transformed {len(rockets)} rockets, {len(payloads)} payloads, {len(images)} images and {len(engines)} engines")
+        self.logger.info(
+            f"Transformed {len(rockets)} rockets, "
+            f"{len(payloads)} payloads, "
+            f"{len(images)} images and "
+            f"{len(engines)} engines"
+        )
 
-        # DataFrames
+        
+        # DATAFRAMES
+        
 
         df_rockets = pd.DataFrame(rockets)
         df_payloads = pd.DataFrame(payloads)
         df_images = pd.DataFrame(images)
         df_engines = pd.DataFrame(engines)
 
-        # Types
-        df_rockets = df_rockets.astype({
-            "rocket_id": "string",
-            "name": "string",
-            "type": "string",
-            "active": "boolean",
-            "stages": "int",
-            "boosters": "int",
-            "cost_per_launch": "int",
-            "success_rate_pct": "int",
-            "first_flight": "datetime64[ns]",
-            "country": "string",
-            "company": "string",
-            "wikipedia": "string",
-            "description": "string",
+        
+        # TYPES
+        
 
-            'height_m': 'float',
-            'diameter_m': 'float',
-            'mass_kg': 'float'
-        })
+        df_rockets["active"] = df_rockets["active"].fillna(0).astype(int)
 
-        df_payloads = df_payloads.astype({
-            "payload_id": "string",
-            "rocket_id": "string",
-            "name": "string",
-            "kg": "float",
-            "lb": "float"
-        })
+        df_rockets["first_flight"] = (
+            pd.to_datetime(df_rockets["first_flight"], errors="coerce")
+            .dt.strftime("%Y-%m-%d")
+        )
 
-        df_images = df_images.astype({
-            "rocket_id": "string",
-            "url": "string"
-        })
+        numeric_cols = [
+            "stages",
+            "boosters",
+            "cost_per_launch",
+            "success_rate_pct",
+            "height_m",
+            "diameter_m",
+            "mass_kg"
+        ]
 
-        df_engines = df_engines.astype({
-            "rocket_id": "string",
-            "type": "string",
-            "number": "int",
-            "version": "string",
-            "layout": "string",
+        for col in numeric_cols:
+            df_rockets[col] = pd.to_numeric(
+                df_rockets[col],
+                errors="coerce"
+            )
 
-            'thust_sea_level_kN': 'float',
-            'thust_vacuum_kN': 'float',
+        df_payloads[["kg", "lb"]] = df_payloads[["kg", "lb"]].apply(
+            pd.to_numeric,
+            errors="coerce"
+        )
 
-            'isp_sl': 'float',
-            'isp_vacuum': 'float',  
+        df_engines["number"] = pd.to_numeric(
+            df_engines["number"],
+            errors="coerce"
+        )
 
-            'propellant_1': 'string',
-            'propellant_2': 'string',
-        })
+        df_engines[[
+            "thrust_sl_kn",
+            "thrust_vac_kn",
+            "isp_sl",
+            "isp_vac"
+        ]] = df_engines[[
+            "thrust_sl_kn",
+            "thrust_vac_kn",
+            "isp_sl",
+            "isp_vac"
+        ]].apply(
+            pd.to_numeric,
+            errors="coerce"
+        )
 
-        self.logger.info("DataFrames created with correct types")
+        self.logger.info("DataFrames created with normalized types")
 
         return {
             "rockets": df_rockets,
