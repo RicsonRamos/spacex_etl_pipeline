@@ -1,0 +1,31 @@
+api:
+  base_url: "https://api.spacexdata.com/v4"
+
+  endpoints:
+    #get_company: "/company"
+    launches: "/launches"
+    #get_latest_launch: "/launches/latest"
+    #get_next_launch: "/launches/next"
+    rockets: "/rockets"
+    #get_capsules: "/capsules"
+    #get_cores: "/cores"
+    #get_dragons: "/dragons"
+    #get_payloads: "/payloads"
+    #get_ships: "/ships"
+    #get_launchpads: "/launchpads"
+    #get_crew: "/crew"
+    #get_starlink: "/starlink"
+    #get_roadster: "/roadster"
+
+paths:
+  raw: "data/raw"
+  processed: "data/processed"
+  logs: "data/logs"
+
+database:
+  url: "sqlite:///data/spacex.db"
+
+pipeline:
+  timeout: 42
+  retries: 3
+  
