@@ -1,183 +1,112 @@
 import pandas as pd
-
+import numpy as np
 from src.logger import setup_logger
 
-
 class SpaceXTransformer:
-
     def __init__(self):
-
-        self.logger = setup_logger(
-            "SpaceXTransformer",
-            "transformer.log"
-        )
+        self.logger = setup_logger("SpaceXTransformer")
 
     def _safe_get(self, obj, *keys):
-
         for k in keys:
-            if obj is None:
+            if not isinstance(obj, dict):
                 return None
             obj = obj.get(k)
         return obj
 
-    def transform_rockets(self, raw_rockets):
+    def _clean_for_sql(self, df):
+        """Converte NaNs do Pandas para None do Python (NULL no SQL)."""
+        # Substitui NaN/NaT por None para compatibilidade com o banco
+        return df.replace({np.nan: None}).to_dict(orient="records")
 
-        rockets = []
-        payloads = []
-        images = []
-        engines = []
+    def transform_rockets(self, raw_rockets):
+        rockets, payloads, images, engines = [], [], [], []
 
         for r in raw_rockets:
+            r_id = r.get("id")
 
-            rocket_id = r.get("id")
-
-            
             # ROCKETS
-            
             rockets.append({
-                "rocket_id": rocket_id,
+                "rocket_id": r_id,
                 "name": r.get("name"),
                 "type": r.get("type"),
-                "active": int(r.get("active", 0)),
-
+                "active": 1 if r.get("active") else 0,
                 "stages": r.get("stages"),
                 "boosters": r.get("boosters"),
-
                 "cost_per_launch": r.get("cost_per_launch"),
                 "success_rate_pct": r.get("success_rate_pct"),
-
                 "first_flight": r.get("first_flight"),
-
                 "country": r.get("country"),
                 "company": r.get("company"),
-
                 "wikipedia": r.get("wikipedia"),
                 "description": r.get("description"),
-
                 "height_m": self._safe_get(r, "height", "meters"),
                 "diameter_m": self._safe_get(r, "diameter", "meters"),
                 "mass_kg": self._safe_get(r, "mass", "kg"),
             })
 
-            
             # PAYLOADS
-            
             for p in r.get("payload_weights", []):
-
                 payloads.append({
-                    "rocket_id": rocket_id,
+                    "rocket_id": r_id,
                     "orbit": p.get("id"),
                     "kg": p.get("kg"),
                     "lb": p.get("lb")
                 })
 
-            
             # IMAGES
-            
             for url in r.get("flickr_images", []):
+                images.append({"rocket_id": r_id, "url": url})
 
-                images.append({
-                    "rocket_id": rocket_id,
-                    "url": url
-                })
-
-            
             # ENGINES
-            
             e = r.get("engines", {})
-
             engines.append({
-                "rocket_id": rocket_id,
-
+                "rocket_id": r_id,
                 "type": e.get("type"),
                 "version": e.get("version"),
                 "layout": e.get("layout"),
-
                 "number": e.get("number"),
-
+                # CORRIGIDO: thrust_sl_kn (sem o erro 'thust')
                 "thrust_sl_kn": self._safe_get(e, "thrust_sea_level", "kN"),
                 "thrust_vac_kn": self._safe_get(e, "thrust_vacuum", "kN"),
-
                 "isp_sl": self._safe_get(e, "isp", "sea_level"),
                 "isp_vac": self._safe_get(e, "isp", "vacuum"),
-
                 "propellant_1": e.get("propellant_1"),
                 "propellant_2": e.get("propellant_2"),
             })
 
-        self.logger.info(
-            f"Transformed {len(rockets)} rockets, "
-            f"{len(payloads)} payloads, "
-            f"{len(images)} images and "
-            f"{len(engines)} engines"
-        )
-
-        
-        # DATAFRAMES
-        
-
+        # Processamento de tipos com Pandas
         df_rockets = pd.DataFrame(rockets)
-        df_payloads = pd.DataFrame(payloads)
-        df_images = pd.DataFrame(images)
         df_engines = pd.DataFrame(engines)
-
         
-        # TYPES
+        # Datas e Números
+        df_rockets["first_flight"] = pd.to_datetime(df_rockets["first_flight"], errors="coerce").dt.date
         
-
-        df_rockets["active"] = df_rockets["active"].fillna(0).astype(int)
-
-        df_rockets["first_flight"] = (
-            pd.to_datetime(df_rockets["first_flight"], errors="coerce")
-            .dt.strftime("%Y-%m-%d")
-        )
-
-        numeric_cols = [
-            "stages",
-            "boosters",
-            "cost_per_launch",
-            "success_rate_pct",
-            "height_m",
-            "diameter_m",
-            "mass_kg"
-        ]
-
-        for col in numeric_cols:
-            df_rockets[col] = pd.to_numeric(
-                df_rockets[col],
-                errors="coerce"
-            )
-
-        df_payloads[["kg", "lb"]] = df_payloads[["kg", "lb"]].apply(
-            pd.to_numeric,
-            errors="coerce"
-        )
-
-        df_engines["number"] = pd.to_numeric(
-            df_engines["number"],
-            errors="coerce"
-        )
-
-        df_engines[[
-            "thrust_sl_kn",
-            "thrust_vac_kn",
-            "isp_sl",
-            "isp_vac"
-        ]] = df_engines[[
-            "thrust_sl_kn",
-            "thrust_vac_kn",
-            "isp_sl",
-            "isp_vac"
-        ]].apply(
-            pd.to_numeric,
-            errors="coerce"
-        )
-
-        self.logger.info("DataFrames created with normalized types")
-
+        # Sanitização final: Retornar listas de dicionários limpas para o Loader
+        self.logger.info("Transformação concluída. Sanitizando para carga SQL...")
+        
         return {
-            "rockets": df_rockets,
-            "payloads": df_payloads,
-            "images": df_images,
-            "engines": df_engines
+            "rockets": self._clean_for_sql(df_rockets),
+            "payloads": self._clean_for_sql(pd.DataFrame(payloads)),
+            "images": self._clean_for_sql(pd.DataFrame(images)),
+            "engines": self._clean_for_sql(df_engines)
         }
+    def transform_launches(self, raw_launches):
+        launches = []
+        for l in raw_launches:
+            launches.append({
+                "launch_id": l.get("id"),
+                "name": l.get("name"),
+                "date_utc": l.get("date_utc"),
+                "rocket_id": l.get("rocket"),
+                "success": 1 if l.get("success") else 0,
+                "flight_number": l.get("flight_number"),
+                "details": l.get("details"),
+                "webcast": self._safe_get(l, "links", "webcast"),
+                "reused": 1 if self._safe_get(l, "fairings", "reused") else 0
+            })
+        
+        df_launches = pd.DataFrame(launches)
+        # Converter para datetime real do Python para o SQLAlchemy não reclamar
+        df_launches["date_utc"] = pd.to_datetime(df_launches["date_utc"]).dt.to_pydatetime()
+        
+        return self._clean_for_sql(df_launches)

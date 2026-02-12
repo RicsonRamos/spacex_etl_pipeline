@@ -1,36 +1,34 @@
 import logging
+import sys
 from pathlib import Path
 
-
-def setup_logger(name: str, log_file: str):
+def setup_logger(name, log_file=None):
     """
-    Setup a logger with a file handler and a stream handler.
-
-    :param name: The name of the logger.
-    :param log_file: The name of the log file.
-    :return: A logger object.
+    Configura um logger que sempre loga no console e opcionalmente em arquivo.
     """
-
-    # Create the log directory if it doesn't exist
-    log_dir = Path('data/logs')
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create a logger object
     logger = logging.getLogger(name)
+    
+    # Evita duplicar handlers se a função for chamada duas vezes
+    if logger.hasHandlers():
+        return logger
+
     logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
-    # Create a formatter
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
-
-    # Create a file handler and a stream handler
-    file_handler = logging.FileHandler(str(log_dir / log_file), mode='a')
-    file_handler.setFormatter(formatter)
-    console_handler = logging.StreamHandler()
+    # Handler para Console (Essencial para Docker/Cloud)
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
-
-    # Add the handlers to the logger
-    logger.handlers.clear()  # Clear existing handlers
-    logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+
+    # Handler para Arquivo (Opcional)
+    if log_file:
+        log_path = Path("data/logs")
+        log_path.mkdir(parents=True, exist_ok=True)
+        
+        file_handler = logging.FileHandler(log_path / log_file)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
 
     return logger
