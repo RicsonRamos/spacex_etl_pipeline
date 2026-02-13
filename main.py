@@ -1,70 +1,52 @@
-import sys
 from src.config.config import settings
 from src.extract.extract import SpaceXExtractor
-from src.transform.spacex_transformer import SpaceXTransformer
-from src.db.database import DatabaseManager
-from src.db.schema import SchemaManager
+from src.transform.transformer import SpaceXTransformer
 from src.load.load import SpaceXLoader
-from src.logger import setup_logger
+from src.utils.logger import setup_logger
 
 def main():
-    # 1. SETUP INICIAL
-    # Inicializa o log principal para rastrear o sucesso/falha da operação
+    # 1. Configuração do Logger Central
     logger = setup_logger("main_pipeline")
-    logger.info("Iniciando Pipeline ETL SpaceX (Rockets + Launches)...")
+    logger.info("Iniciando Pipeline ETL SpaceX (Arquitetura Híbrida)")
 
     try:
-        # Carrega configurações (URLs, timeouts, paths)
-        config = settings
-        
-        # 2. DATABASE & SCHEMA SETUP
-        # Prepara a infraestrutura antes de buscar dados pesados
-        db = DatabaseManager()
-        schema = SchemaManager(db)
-        
-        # Criamos as tabelas (usando IF NOT EXISTS dentro do schema)
-        # Removido drop_all para preservar dados históricos
-        schema.create_tables()
-
-        # 3. EXTRAÇÃO (EXTRACT)
-        extractor = SpaceXExtractor(config)
-        raw_data = extractor.fetch_all()
-        
-        # Validação de sanidade: se os dados essenciais falharem, interrompemos aqui
-        if not raw_data.get("rockets") or not raw_data.get("launches"):
-            raise ValueError("Falha na extração: Um ou mais endpoints retornaram vazios.")
-
-        # 4. TRANSFORMAÇÃO (TRANSFORM)
+        # 2. Inicialização dos Módulos (Todos agora buscam config sozinhos)
+        extractor = SpaceXExtractor()
         transformer = SpaceXTransformer()
+        loader = SpaceXLoader()
+
+        # 3. EXTRAÇÃO (Massa)
+        # O fetch_all percorre o manifesto e traz um dict {nome: dados_brutos}
+        raw_data_map = extractor.fetch_all()
         
-        logger.info("Transformando dados de Foguetes...")
-        # processed_rockets contém: rockets, payloads, images, engines
-        processed_rockets = transformer.transform_rockets(raw_data["rockets"])
-        
-        logger.info("Transformando dados de Lançamentos...")
-        processed_launches = transformer.transform_launches(raw_data["launches"])
+        if not raw_data_map:
+            logger.error("Nenhum dado extraído. Verifique a conexão ou o manifesto.")
+            return
 
-        # Consolidação dos dados para carga
-        all_data = {
-            **processed_rockets,
-            "launches": processed_launches
-        }
+        # 4. CICLO ETL DINÂMICO
+        for endpoint_name, data in raw_data_map.items():
+            logger.info(f"--- Processando Unidade: {endpoint_name.upper()} ---")
+            
+            try:
+                # A: Transformação (Usa o mapeamento do JSON)
+                df_processed = transformer.transform(endpoint_name, data)
+                
+                if df_processed.empty:
+                    logger.warning(f" {endpoint_name}: DataFrame vazio após transformação. Pulando carga.")
+                    continue
 
-        # 5. CARGA (LOAD)
-        loader = SpaceXLoader(db.get_engine())
-        
-        # O loader agora orquestra a ordem de inserção correta para respeitar FKs
-        loader.load_tables(all_data)
+                # B: Carga (Decide automaticamente entre Upsert ou Genérica)
+                loader.load(endpoint_name, df_processed)
+                
+            except Exception as e:
+                # Rigor: Um erro em um endpoint não deve derrubar o pipeline inteiro
+                logger.error(f"Falha no ciclo do endpoint '{endpoint_name}': {e}")
+                continue
 
-        logger.info("Pipeline executado com sucesso absoluto.")
+        logger.info("Pipeline finalizado com Sucesso Absoluto.")
 
-    except KeyError as e:
-        logger.error(f"Erro de configuração: Chave ausente no YAML/Settings: {e}")
-        sys.exit(1)
     except Exception as e:
-        # exc_info=True grava o traceback completo no log para debug posterior
-        logger.error(f"Falha crítica no pipeline: {str(e)}", exc_info=True)
-        sys.exit(1)
+        logger.critical(f"Falha catastrófica no motor do pipeline: {e}")
 
 if __name__ == "__main__":
     main()
