@@ -1,5 +1,5 @@
 import sys
-from src.settings import load_config
+from src.config.config import settings
 from src.extract.extract import SpaceXExtractor
 from src.transform.spacex_transformer import SpaceXTransformer
 from src.db.database import DatabaseManager
@@ -15,7 +15,7 @@ def main():
 
     try:
         # Carrega configurações (URLs, timeouts, paths)
-        config = load_config()
+        config = settings
         
         # 2. DATABASE & SCHEMA SETUP
         # Prepara a infraestrutura antes de buscar dados pesados

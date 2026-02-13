@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  etl_pipeline:
+    build: .
+    container_name: spacex_etl_container
+    # Removido 'ports' pois scripts de ETL não precisam de porta aberta
+    volumes:
+      # MAPEAMENTO: Pasta local : Pasta no Container
+      # Isso garante que o .db e os logs apareçam no seu VS Code
+      - ./data:/app/data
+    env_file:
+      - .env
+   

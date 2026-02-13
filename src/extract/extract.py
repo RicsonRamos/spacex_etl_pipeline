@@ -3,18 +3,20 @@ import json
 import time
 from pathlib import Path
 from datetime import datetime
+from src.config.config import settings as Config
 from requests.exceptions import RequestException, HTTPError
 
 class SpaceXExtractor:
-    def __init__(self, config):
-        # Fail-fast: se a config não tiver as chaves, o erro aparece no init
-        self.base_url = config["api"]["base_url"]
-        self.endpoints = config["api"]["endpoints"]
-        self.timeout = config["pipeline"].get("timeout", 10)
-        self.retries = config["pipeline"].get("retries", 3)
-        self.raw_data_dir = Path(config["paths"]["raw"])
+    def __init__(self, config): # Agora ele pode ser independente de passar dicionários
+        self.base_url = Config.SPACEX_API_URL
+        self.config = config
+        # Se os endpoints forem fixos, podem estar no Config ou passados aqui
+        self.endpoints = {"rockets": "/rockets", "launches": "/launches"}
+        self.timeout = 10
+        self.retries = 3
+        self.raw_data_dir = Path("data/raw")
         self.raw_data_dir.mkdir(parents=True, exist_ok=True)
-        # Use o logger centralizado, mas sem criar arquivos locais dentro da src
+        
         from src.logger import setup_logger
         self.logger = setup_logger("extractor")
 
