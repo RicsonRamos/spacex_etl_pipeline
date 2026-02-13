@@ -3,53 +3,72 @@ from src.utils.logger import setup_logger
 from src.config.config import settings
 
 class SpaceXTransformer:
+    """
+    The Transformer class is responsible for transforming raw data into a standardized, cleaned DataFrame.
+    It reads the manifest configuration to dynamically filter and rename columns based on the endpoint name.
+    """
     def __init__(self):
+        """
+        Initializes the Transformer object.
+
+        Loads dynamic mapping from settings object (which read manifest.json).
+        Expected format is settings.API_ENDPOINTS[endpoint_name]['mapping']
+        """
         self.logger = setup_logger("transformer")
-        # Carrega o mapeamento dinâmico do objeto settings (que leu o manifesto.json)
-        # O formato esperado é settings.API_ENDPOINTS[endpoint_name]['mapping']
+        # Loads dynamic mapping from settings object (which read manifest.json)
+        # Expected format is settings.API_ENDPOINTS[endpoint_name]['mapping']
         self.endpoints_config = settings.API_ENDPOINTS
 
     def transform(self, endpoint_name, raw_data):
         """
-        Método universal de transformação.
-        Usa o mapeamento do manifesto para filtrar e renomear colunas.
+        Universal transformation method.
+        Uses manifest mapping to filter and rename columns.
+
+        1. Fetch endpoint configuration from manifest.
+        2. Flatten JSON.
+        3. Dynamic Filtering and Renaming.
+        4. Basic Cleanup (Optional: remove completely null rows).
+
+        :param endpoint_name: The name of the endpoint to transform.
+        :param raw_data: The raw data to transform.
+        :return: The transformed DataFrame.
         """
         if not raw_data:
-            self.logger.warning(f"Nenhum dado recebido para transformar: {endpoint_name}")
+            self.logger.warning(f"No data received for transformation: {endpoint_name}")
             return pd.DataFrame()
 
         try:
-            # 1. Busca a configuração do endpoint no manifesto
+            # 1. Fetch endpoint configuration from manifest
+            # Fetch the configuration from the manifest for the given endpoint
             config = self.endpoints_config.get(endpoint_name)
             if not config or "mapping" not in config:
-                self.logger.error(f" Mapeamento não encontrado para '{endpoint_name}' no manifesto.")
-                # Se não há mapeamento, retornamos o DF bruto como fallback para o load_generic
+                # If no mapping exists, return raw DataFrame as fallback for load_generic
+                self.logger.error(f"Mapping not found for '{endpoint_name}' in manifest.")
                 return pd.json_normalize(raw_data)
 
-            mapping = config["mapping"]
-
-            # 2. Achata o JSON (Flattening)
-            # Transforma estruturas como {'links': {'patch': {'small': 'url'}}} em 'links.patch.small'
+            # 2. Flatten JSON
+            # Transforms structures like {'links': {'patch': {'small': 'url'}}} to 'links.patch.small'
             df = pd.json_normalize(raw_data)
 
-            # 3. Filtragem e Renomeação Dinâmica
-            # Filtra apenas as colunas que existem tanto no mapeamento quanto no JSON
-            available_cols = [col for col in mapping.keys() if col in df.columns]
+            # 3. Dynamic Filtering and Renaming
+            # Filters only columns that exist in both mapping and JSON
+            available_cols = [col for col in config["mapping"].keys() if col in df.columns]
             
-            # Avisa se colunas mapeadas estão faltando no JSON (Mudança na API)
-            missing_cols = set(mapping.keys()) - set(df.columns)
+            # Warns if mapped columns are missing in JSON (API change)
+            missing_cols = set(config["mapping"].keys()) - set(df.columns)
             if missing_cols:
-                self.logger.warning(f"Campos mapeados ausentes na API para {endpoint_name}: {missing_cols}")
+                self.logger.warning(f"Mapped fields missing from API for {endpoint_name}: {missing_cols}")
 
-            # Cria o novo DataFrame apenas com o que foi solicitado e renomeado
-            df_transformed = df[available_cols].rename(columns=mapping)
+            # Creates new DataFrame with only requested and renamed columns
+            df_transformed = df[available_cols].rename(columns=config["mapping"])
 
-            # 4. Limpeza Básica (Opcional: remover linhas totalmente nulas)
+            # 4. Basic Cleanup (Optional: remove completely null rows)
+            # Removes rows with no values
             df_transformed = df_transformed.dropna(how='all')
 
-            self.logger.info(f"{endpoint_name.upper()}: Transformação concluída ({len(df_transformed.columns)} colunas).")
+            self.logger.info(f"{endpoint_name.upper()}: Transformation completed ({len(df_transformed.columns)} columns).")
             return df_transformed
 
         except Exception as e:
-            self.logger.error(f" Erro na transformação de {endpoint_name}: {e}")
+            self.logger.error(f"Error during transformation of {endpoint_name}: {e}")
             raise

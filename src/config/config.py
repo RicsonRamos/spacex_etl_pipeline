@@ -1,45 +1,74 @@
 import os
+import json
 from pathlib import Path
 from dotenv import load_dotenv
-import json
 
-# CORREÇÃO: Sobe 3 níveis para garantir que BASE_DIR seja a raiz do projeto
+# Absolute path to the project root
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Carrega o arquivo .env da raiz
-load_dotenv(BASE_DIR / ".env")
-
 class Config:
-    """Centraliza todas as configurações do pipeline."""
-    
-    # --- PATHS (Definidos primeiro para serem usados abaixo) ---
-    # Usamos BASE_DIR.resolve() para garantir caminhos absolutos reais
-    ROOT_DIR = BASE_DIR.resolve()
-    RAW_DATA_DIR = ROOT_DIR / "data" / "raw"
-    LOG_DIR = ROOT_DIR / "data" / "logs"
-    
-    # --- API CONFIGS ---
-    SPACEX_API_URL = os.getenv("SPACEX_API_URL", "https://api.spacexdata.com/v4")
-    
-    # Tratamento de erro robusto para o Manifesto
-    MANIFEST_PATH = ROOT_DIR / "manifesto.json"
-    try:
-        with open(MANIFEST_PATH, "r") as f:
-            API_ENDPOINTS = json.load(f)["endpoints"]
-    except (FileNotFoundError, KeyError) as e:
-        # Fallback de segurança para o pipeline não "capotar" no início
-        API_ENDPOINTS = {"rockets": "/rockets", "launches": "/launches"}
-        print(f"⚠️ Aviso: Falha ao ler manifesto em {MANIFEST_PATH}. Usando padrão. Erro: {e}")
+    """
+    Configuration manager for the SpaceX ETL Pipeline.
+    Loads environment variables from .env and endpoint definitions from manifesto.json.
+    """
+    def __init__(self):
+        """
+        Initializes settings, ensures directory structure, and validates core parameters.
+        """
+        # Load .env file with override to ensure latest values are used
+        load_dotenv(BASE_DIR / ".env", override=True)
+        
+        self.ROOT_DIR = BASE_DIR
+        self.RAW_DATA_DIR = self.ROOT_DIR / "data" / "raw"
+        self.LOG_DIR = self.ROOT_DIR / "data" / "logs"
+        self.MANIFEST_PATH = self.ROOT_DIR / "manifesto.json"
+        
+        # Ensure infrastructure directories exist
+        self.RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        self.LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # --- DATABASE CONFIGS ---
-    # Garantimos que o caminho do SQLite também seja absoluto para o SQLAlchemy
-    DB_PATH = ROOT_DIR / "data" / "spacex.db"
-    DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+        # Critical Configurations
+        self.SPACEX_API_URL = self._get_env_var_or_raise("SPACEX_API_URL")
+        self.API_ENDPOINTS = self._load_manifest()
 
-    # --- PIPELINE PARAMS ---
-    TIMEOUT = int(os.getenv("PIPELINE_TIMEOUT", 15))
-    RETRIES = int(os.getenv("PIPELINE_RETRIES", 3))
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+        # Optional Configurations with Defaults
+        self.DATABASE_URL = self._get_env_var_or_default(
+            "DATABASE_URL", 
+            f"sqlite:///{self.ROOT_DIR}/data/spacex_etl.db"
+        )
+        self.TIMEOUT = int(self._get_env_var_or_default("PIPELINE_TIMEOUT", 15))
+        self.RETRIES = int(self._get_env_var_or_default("PIPELINE_RETRIES", 3))
+        self.LOG_LEVEL = self._get_env_var_or_default("LOG_LEVEL", "INFO").upper()
 
-# Instanciar para uso global
+    def _get_env_var_or_raise(self, var_name: str) -> str:
+        """
+        Retrieves an environment variable or raises ValueError if missing.
+        """
+        val = os.getenv(var_name)
+        if not val:
+            raise ValueError(f"CRITICAL: {var_name} is not defined in .env file!")
+        return val  # FIXED: Added missing return
+
+    def _get_env_var_or_default(self, var_name: str, default: any) -> any:
+        """
+        Retrieves an environment variable or returns a default value.
+        """
+        val = os.getenv(var_name)
+        return val if val is not None else default
+
+    def _load_manifest(self) -> dict:
+        """
+        Loads the manifesto.json file containing endpoint mappings.
+        """
+        if not self.MANIFEST_PATH.exists():
+            raise FileNotFoundError(f"Manifest missing at: {self.MANIFEST_PATH}")
+            
+        try:
+            with self.MANIFEST_PATH.open("r", encoding="utf-8") as f:
+                manifest = json.load(f)
+            return manifest["endpoints"]
+        except (json.JSONDecodeError, KeyError) as e:
+            raise RuntimeError(f"Fatal error parsing manifesto.json: {e}")
+
+# Global settings instance
 settings = Config()

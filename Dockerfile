@@ -1,26 +1,26 @@
 FROM python:3.11-slim
 
-# PYTHONUNBUFFERED: Garante que os logs apareçam em tempo real
-# PYTHONDONTWRITEBYTECODE: Evita que o container fique sujo com arquivos .pyc
+# PYTHONUNBUFFERED: Ensures logs appear in real-time
+# PYTHONDONTWRITEBYTECODE: Prevents container from getting cluttered with .pyc files
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
 
-# Instala dependências de compilação (necessário para SQLAlchemy/Pandas em imagens slim)
+# Installs build dependencies (necessary for SQLAlchemy/Pandas on slim images)
 RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Prepara a estrutura de pastas antes de copiar o código
+# Prepares folder structure before copying code
 RUN mkdir -p data/raw data/logs
 
-# Copia apenas os requisitos para aproveitar o cache de camadas do Docker
+# Copies only requirements to leverage Docker layer caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o restante do projeto
+# Copies the rest of the project
 COPY . .
 
-# Comando de execução
+# Execution command
 CMD ["python", "main.py"]

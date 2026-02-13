@@ -4,11 +4,10 @@ services:
   etl_pipeline:
     build: .
     container_name: spacex_etl_container
-    # Removido 'ports' pois scripts de ETL não precisam de porta aberta
+    # Removed 'ports' since ETL scripts don't need an open port
     volumes:
-      # MAPEAMENTO: Pasta local : Pasta no Container
-      # Isso garante que o .db e os logs apareçam no seu VS Code
+      # MAPPING: Local folder : Folder in Container
+      # This ensures that the .db and logs appear in your VS Code
       - ./data:/app/data
     env_file:
       - .env
-   
