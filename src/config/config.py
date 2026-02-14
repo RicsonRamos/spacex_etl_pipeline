@@ -1,74 +1,46 @@
 import os
-import json
+import yaml
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Absolute path to the project root
+# RIGOR: BASE_DIR deve apontar para a RAIZ do projeto (onde o main.py reside)
+# Se este arquivo está em src/config/config.py, precisamos subir 2 níveis para chegar na raiz.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Config:
-    """
-    Configuration manager for the SpaceX ETL Pipeline.
-    Loads environment variables from .env and endpoint definitions from manifesto.json.
-    """
     def __init__(self):
-        """
-        Initializes settings, ensures directory structure, and validates core parameters.
-        """
-        # Load .env file with override to ensure latest values are used
         load_dotenv(BASE_DIR / ".env", override=True)
-        
+
         self.ROOT_DIR = BASE_DIR
-        self.RAW_DATA_DIR = self.ROOT_DIR / "data" / "raw"
-        self.LOG_DIR = self.ROOT_DIR / "data" / "logs"
-        self.MANIFEST_PATH = self.ROOT_DIR / "manifesto.json"
         
-        # Ensure infrastructure directories exist
-        self.RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
-        self.LOG_DIR.mkdir(parents=True, exist_ok=True)
+        # CORREÇÃO: Verifique se o seu settings.yaml está na RAIZ/config/ ou em SRC/config/
+        # O padrão de produção mais comum é na RAIZ do projeto.
+        self.SETTING_PATH = self.ROOT_DIR / "config" / "settings.yaml"
 
-        # Critical Configurations
-        self.SPACEX_API_URL = self._get_env_var_or_raise("SPACEX_API_URL")
-        self.API_ENDPOINTS = self._load_manifest()
+        if not self.SETTING_PATH.exists():
+            # Fallback para src/config caso você tenha movido para lá
+            self.SETTING_PATH = self.ROOT_DIR / "src" / "config" / "settings.yaml"
+            if not self.SETTING_PATH.exists():
+                raise FileNotFoundError(f"Configuração não encontrada em: {self.ROOT_DIR}/config/ ou {self.ROOT_DIR}/src/config/")
 
-        # Optional Configurations with Defaults
-        self.DATABASE_URL = self._get_env_var_or_default(
-            "DATABASE_URL", 
-            f"sqlite:///{self.ROOT_DIR}/data/spacex_etl.db"
-        )
-        self.TIMEOUT = int(self._get_env_var_or_default("PIPELINE_TIMEOUT", 15))
-        self.RETRIES = int(self._get_env_var_or_default("PIPELINE_RETRIES", 3))
-        self.LOG_LEVEL = self._get_env_var_or_default("LOG_LEVEL", "INFO").upper()
+        with self.SETTING_PATH.open("r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
 
-    def _get_env_var_or_raise(self, var_name: str) -> str:
-        """
-        Retrieves an environment variable or raises ValueError if missing.
-        """
-        val = os.getenv(var_name)
-        if not val:
-            raise ValueError(f"CRITICAL: {var_name} is not defined in .env file!")
-        return val  # FIXED: Added missing return
+        # --- API ---
+        api_cfg = config.get("api", {})
+        self.SPACEX_API_URL = api_cfg.get("base_url")
+        self.API_ENDPOINTS = api_cfg.get("endpoints", {})
 
-    def _get_env_var_or_default(self, var_name: str, default: any) -> any:
-        """
-        Retrieves an environment variable or returns a default value.
-        """
-        val = os.getenv(var_name)
-        return val if val is not None else default
+        # --- WHITELIST (Núcleo Duro) ---
+        self.WHITELIST = config.get("whitelist", {})
 
-    def _load_manifest(self) -> dict:
-        """
-        Loads the manifesto.json file containing endpoint mappings.
-        """
-        if not self.MANIFEST_PATH.exists():
-            raise FileNotFoundError(f"Manifest missing at: {self.MANIFEST_PATH}")
-            
-        try:
-            with self.MANIFEST_PATH.open("r", encoding="utf-8") as f:
-                manifest = json.load(f)
-            return manifest["endpoints"]
-        except (json.JSONDecodeError, KeyError) as e:
-            raise RuntimeError(f"Fatal error parsing manifesto.json: {e}")
+        # --- DATABASE ---
+        db_cfg = config.get("database", {})
+        self.DATABASE_URL = db_cfg.get("url", f"sqlite:///{self.ROOT_DIR}/data/database/spacex_prod.db")
+        
+        # --- PIPELINE ---
+        pipe_cfg = config.get("pipeline", {})
+        self.TIMEOUT = int(pipe_cfg.get("timeout", 15))
+        self.RETRIES = int(pipe_cfg.get("retries", 3))
 
-# Global settings instance
 settings = Config()

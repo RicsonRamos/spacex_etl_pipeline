@@ -1,0 +1,16 @@
+api:
+  base_url: "https://api.spacexdata.com/v4"
+  endpoints:
+    launches: "launches"
+    rockets: "rockets"
+    payloads: "payloads"
+    launchpads: "launchpads"  
+
+whitelist:
+  launches: ['id', 'name', 'date_utc', 'rocket', 'success', 'flight_number', 'launchpad']
+  rockets: ['id', 'name', 'type', 'active', 'cost_per_launch', 'success_rate_pct', 'height.meters', 'mass.kg']
+  payloads: ['id', 'name', 'type', 'mass_kg', 'orbit', 'reused']
+  launchpads: ['id', 'full_name', 'region', 'status']
+
+database:
+  url: "sqlite:///data/database/spacex_prod.db"

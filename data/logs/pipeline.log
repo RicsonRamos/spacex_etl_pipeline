@@ -1,0 +1,14 @@
+2026-02-14 19:40:51,091 - loader - INFO - Criando diretório do banco: D:\Documentos\VsCode\projetos_git\spacex_etl_pipeline\data\database
+2026-02-14 19:40:51,467 - loader - INFO - Schema sincronizado e validado.
+2026-02-14 19:40:51,468 - main - INFO - --- Iniciando processamento: launches ---
+2026-02-14 19:40:52,568 - loader - INFO - UPSERT SUCCESS: LAUNCHES (205 rows)
+2026-02-14 19:40:52,568 - main - INFO - SUCESSO: LAUNCHES finalizado.
+2026-02-14 19:40:52,568 - main - INFO - --- Iniciando processamento: rockets ---
+2026-02-14 19:40:52,793 - loader - INFO - UPSERT SUCCESS: ROCKETS (4 rows)
+2026-02-14 19:40:52,793 - main - INFO - SUCESSO: ROCKETS finalizado.
+2026-02-14 19:40:52,794 - main - INFO - --- Iniciando processamento: payloads ---
+2026-02-14 19:40:53,039 - loader - INFO - UPSERT SUCCESS: PAYLOADS (225 rows)
+2026-02-14 19:40:53,040 - main - INFO - SUCESSO: PAYLOADS finalizado.
+2026-02-14 19:40:53,040 - main - INFO - --- Iniciando processamento: launchpads ---
+2026-02-14 19:40:53,275 - loader - INFO - UPSERT SUCCESS: LAUNCHPADS (6 rows)
+2026-02-14 19:40:53,276 - main - INFO - SUCESSO: LAUNCHPADS finalizado.
