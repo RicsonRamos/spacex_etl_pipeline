@@ -3,8 +3,16 @@ import sys
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
-def setup_logger(name: str):
-    """Configura um logger com rotação de arquivos para evitar estouro de disco."""
+def setup_logger(name: str) -> logging.Logger:
+    """
+    Set up a logger with console and file handlers.
+
+    Args:
+        name (str): Name of the logger.
+
+    Returns:
+        logging.Logger: The configured logger.
+    """
     logger = logging.getLogger(name)
     
     if not logger.handlers:
@@ -13,13 +21,12 @@ def setup_logger(name: str):
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
 
-        # 1. Handler para Console (stdout)
+        # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
-        # 2. Handler para Arquivo com Rotação (Escalabilidade)
-        # Mantém até 5 arquivos de 5MB cada
+        # File handler
         log_dir = Path("data/logs")
         log_dir.mkdir(parents=True, exist_ok=True)
         

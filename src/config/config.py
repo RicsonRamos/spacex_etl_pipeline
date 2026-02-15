@@ -1,46 +1,107 @@
-import os
 import yaml
 from pathlib import Path
 from dotenv import load_dotenv
 
-# RIGOR: BASE_DIR deve apontar para a RAIZ do projeto (onde o main.py reside)
-# Se este arquivo está em src/config/config.py, precisamos subir 2 níveis para chegar na raiz.
+# Get the root directory of the project (three levels up from this file)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+
 class Config:
-    def __init__(self):
+    """Configuration manager for SpaceX ETL Pipeline."""
+
+    # Default configuration paths in order of priority
+    DEFAULT_SETTING_PATHS = [
+        BASE_DIR / "config" / "settings.yaml",
+        BASE_DIR / "src" / "config" / "settings.yaml",
+    ]
+
+    # Default values
+    DEFAULTS = {
+        "timeout": 15,
+        "retries": 3,
+        "database_url": "sqlite:///{}/data/database/spacex_prod.db",
+    }
+
+    def __init__(self, settings_path: Path = None):
+        """
+        Initialize configuration.
+
+        :param settings_path: Optional explicit path to settings.yaml
+        :raises FileNotFoundError: If configuration file not found
+        :raises ValueError: If configuration is invalid
+        """
         load_dotenv(BASE_DIR / ".env", override=True)
 
         self.ROOT_DIR = BASE_DIR
+        self.SETTING_PATH = self._find_settings_file(settings_path)
         
-        # CORREÇÃO: Verifique se o seu settings.yaml está na RAIZ/config/ ou em SRC/config/
-        # O padrão de produção mais comum é na RAIZ do projeto.
-        self.SETTING_PATH = self.ROOT_DIR / "config" / "settings.yaml"
+        config = self._load_yaml_config(self.SETTING_PATH)
+        
+        self._load_api_config(config)
+        self._load_database_config(config)
+        self._load_pipeline_config(config)
+        self._load_whitelist_config(config)
 
-        if not self.SETTING_PATH.exists():
-            # Fallback para src/config caso você tenha movido para lá
-            self.SETTING_PATH = self.ROOT_DIR / "src" / "config" / "settings.yaml"
-            if not self.SETTING_PATH.exists():
-                raise FileNotFoundError(f"Configuração não encontrada em: {self.ROOT_DIR}/config/ ou {self.ROOT_DIR}/src/config/")
+    def _find_settings_file(self, explicit_path: Path = None) -> Path:
+        """Find settings file with validation."""
+        if explicit_path:
+            if not explicit_path.exists():
+                raise FileNotFoundError(f"Settings file not found: {explicit_path}")
+            return explicit_path
 
-        with self.SETTING_PATH.open("r", encoding="utf-8") as f:
-            config = yaml.safe_load(f) or {}
+        for path in self.DEFAULT_SETTING_PATHS:
+            if path.exists():
+                return path
 
-        # --- API ---
+        raise FileNotFoundError(
+            f"Configuration not found in: {', '.join(map(str, self.DEFAULT_SETTING_PATHS))}"
+        )
+
+    def _load_yaml_config(self, path: Path) -> dict:
+        """Load and validate YAML configuration."""
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+                return config if isinstance(config, dict) else {}
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in {path}: {e}")
+        except IOError as e:
+            raise FileNotFoundError(f"Cannot read {path}: {e}")
+
+    def _load_api_config(self, config: dict) -> None:
+        """Load API configuration."""
         api_cfg = config.get("api", {})
         self.SPACEX_API_URL = api_cfg.get("base_url")
+        
+        if not self.SPACEX_API_URL:
+            raise ValueError("API base_url not configured")
+        
         self.API_ENDPOINTS = api_cfg.get("endpoints", {})
 
-        # --- WHITELIST (Núcleo Duro) ---
+    def _load_database_config(self, config: dict) -> None:
+        """Load database configuration."""
+        db_cfg = config.get("database", {})
+        url = db_cfg.get("url")
+        
+        if not url:
+            url = self.DEFAULTS["database_url"].format(self.ROOT_DIR)
+        
+        self.DATABASE_URL = url
+
+    def _load_pipeline_config(self, config: dict) -> None:
+        """Load pipeline configuration."""
+        pipe_cfg = config.get("pipeline", {})
+        
+        try:
+            self.TIMEOUT = int(pipe_cfg.get("timeout", self.DEFAULTS["timeout"]))
+            self.RETRIES = int(pipe_cfg.get("retries", self.DEFAULTS["retries"]))
+        except ValueError as e:
+            raise ValueError(f"Invalid pipeline configuration: {e}")
+
+    def _load_whitelist_config(self, config: dict) -> None:
+        """Load whitelist configuration."""
         self.WHITELIST = config.get("whitelist", {})
 
-        # --- DATABASE ---
-        db_cfg = config.get("database", {})
-        self.DATABASE_URL = db_cfg.get("url", f"sqlite:///{self.ROOT_DIR}/data/database/spacex_prod.db")
-        
-        # --- PIPELINE ---
-        pipe_cfg = config.get("pipeline", {})
-        self.TIMEOUT = int(pipe_cfg.get("timeout", 15))
-        self.RETRIES = int(pipe_cfg.get("retries", 3))
 
+# Create global settings instance
 settings = Config()

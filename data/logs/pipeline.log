@@ -1,14 +1,22 @@
-2026-02-14 19:40:51,091 - loader - INFO - Criando diretório do banco: D:\Documentos\VsCode\projetos_git\spacex_etl_pipeline\data\database
-2026-02-14 19:40:51,467 - loader - INFO - Schema sincronizado e validado.
-2026-02-14 19:40:51,468 - main - INFO - --- Iniciando processamento: launches ---
-2026-02-14 19:40:52,568 - loader - INFO - UPSERT SUCCESS: LAUNCHES (205 rows)
-2026-02-14 19:40:52,568 - main - INFO - SUCESSO: LAUNCHES finalizado.
-2026-02-14 19:40:52,568 - main - INFO - --- Iniciando processamento: rockets ---
-2026-02-14 19:40:52,793 - loader - INFO - UPSERT SUCCESS: ROCKETS (4 rows)
-2026-02-14 19:40:52,793 - main - INFO - SUCESSO: ROCKETS finalizado.
-2026-02-14 19:40:52,794 - main - INFO - --- Iniciando processamento: payloads ---
-2026-02-14 19:40:53,039 - loader - INFO - UPSERT SUCCESS: PAYLOADS (225 rows)
-2026-02-14 19:40:53,040 - main - INFO - SUCESSO: PAYLOADS finalizado.
-2026-02-14 19:40:53,040 - main - INFO - --- Iniciando processamento: launchpads ---
-2026-02-14 19:40:53,275 - loader - INFO - UPSERT SUCCESS: LAUNCHPADS (6 rows)
-2026-02-14 19:40:53,276 - main - INFO - SUCESSO: LAUNCHPADS finalizado.
+2026-02-14 21:11:20,374 - loader - INFO - Schema synchronized and optimized.
+2026-02-14 21:11:20,441 - main - INFO - === INICIANDO: ROCKETS ===
+2026-02-14 21:11:20,441 - spacex_extractor - INFO - Extracting data from: https://api.spacexdata.com/v4/rockets
+2026-02-14 21:11:21,371 - loader - INFO - UPSERT SUCCESS: ROCKETS (4 rows) | Time: 0.045s | Batch size: 100
+2026-02-14 21:11:21,372 - main - INFO - [METRICS] ROCKETS | E: 0.8512s | T: 0.0298s | L: 0.0499s | Vazão: 4.3 rows/sec
+2026-02-14 21:11:21,373 - main - INFO - === INICIANDO: LAUNCHPADS ===
+2026-02-14 21:11:21,374 - spacex_extractor - INFO - Extracting data from: https://api.spacexdata.com/v4/launchpads
+2026-02-14 21:11:21,534 - loader - INFO - UPSERT SUCCESS: LAUNCHPADS (6 rows) | Time: 0.001s | Batch size: 100
+2026-02-14 21:11:21,536 - main - INFO - [METRICS] LAUNCHPADS | E: 0.1414s | T: 0.0155s | L: 0.0056s | Vazão: 36.92 rows/sec
+2026-02-14 21:11:21,537 - main - INFO - === INICIANDO: LANDPADS ===
+2026-02-14 21:11:21,538 - spacex_extractor - INFO - Extracting data from: https://api.spacexdata.com/v4/landpads
+2026-02-14 21:11:21,696 - loader - INFO - UPSERT SUCCESS: LANDPADS (7 rows) | Time: 0.001s | Batch size: 100
+2026-02-14 21:11:21,699 - main - INFO - [METRICS] LANDPADS | E: 0.1427s | T: 0.0134s | L: 0.005s | Vazão: 43.45 rows/sec
+2026-02-14 21:11:21,700 - main - INFO - === INICIANDO: PAYLOADS ===
+2026-02-14 21:11:21,701 - spacex_extractor - INFO - Extracting data from: https://api.spacexdata.com/v4/payloads
+2026-02-14 21:11:22,000 - loader - INFO - UPSERT SUCCESS: PAYLOADS (225 rows) | Time: 0.003s | Batch size: 100
+2026-02-14 21:11:22,000 - main - INFO - [METRICS] PAYLOADS | E: 0.2759s | T: 0.0144s | L: 0.009s | Vazão: 751.75 rows/sec
+2026-02-14 21:11:22,000 - main - INFO - === INICIANDO: LAUNCHES ===
+2026-02-14 21:11:22,001 - spacex_extractor - INFO - Extracting data from: https://api.spacexdata.com/v4/launches
+2026-02-14 21:11:22,299 - loader - INFO - UPSERT SUCCESS: LAUNCHES (205 rows) | Time: 0.003s | Batch size: 100
+2026-02-14 21:11:22,299 - main - INFO - [METRICS] LAUNCHES | E: 0.2715s | T: 0.0198s | L: 0.0075s | Vazão: 686.08 rows/sec
+2026-02-14 21:11:22,300 - main - INFO - === PIPELINE FINALIZADO ===

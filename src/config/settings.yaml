@@ -2,15 +2,53 @@ api:
   base_url: "https://api.spacexdata.com/v4"
   endpoints:
     launches: "launches"
+    launchpads: "launchpads"
+    landpads: "landpads"
     rockets: "rockets"
     payloads: "payloads"
-    launchpads: "launchpads"  
-
-whitelist:
-  launches: ['id', 'name', 'date_utc', 'rocket', 'success', 'flight_number', 'launchpad']
-  rockets: ['id', 'name', 'type', 'active', 'cost_per_launch', 'success_rate_pct', 'height.meters', 'mass.kg']
-  payloads: ['id', 'name', 'type', 'mass_kg', 'orbit', 'reused']
-  launchpads: ['id', 'full_name', 'region', 'status']
 
 database:
+  # Uso de caminho absoluto via placeholder é recomendado em prod, 
+  # mas manteremos o relativo para sua estrutura atual.
   url: "sqlite:///data/database/spacex_prod.db"
+
+pipeline:
+  timeout: 15
+  retries: 3
+  batch_size: 100 # Adição sênior para controle de memória
+
+whitelist:
+  launches:
+    - id
+    - name
+    - date_utc
+    - success
+    - rocket
+    - flight_number
+    - launchpad
+  rockets:
+    - id
+    - name
+    - type
+    - active
+    - cost_per_launch
+    - success_rate_pct
+    - height.meters # Formato correto para json_normalize
+    - mass.kg        # Formato correto para json_normalize
+  payloads:
+    - id
+    - name
+    - type
+    - mass_kg
+    - orbit
+    - reused
+  launchpads:
+    - id
+    - full_name
+    - region
+    - status
+  landpads: # Adicionado para evitar erro de inconsistência
+    - id
+    - full_name
+    - status
+    - type

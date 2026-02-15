@@ -3,28 +3,36 @@ import pandas as pd
 from pathlib import Path
 
 def audit_database():
+    """
+    Prints a summary of the database, including the number of records
+    in each table and the last update time for each table.
+    Also prints the overall historical success rate of SpaceX launches.
+    """
     db_path = Path("data/database/spacex_prod.db")
     if not db_path.exists():
-        print("Erro: Banco de dados não encontrado.")
+        print("Error: Database not found.")
         return
 
     conn = sqlite3.connect(db_path)
     tables = ['launches', 'rockets', 'payloads', 'launchpads']
     
-    print(f"{'Tabela':<15} | {'Registros':<10} | {'Última Atualização'}")
+    print(f"{'Table':<15} | {'Records':<10} | {'Last Update'}")
     print("-" * 50)
     
-    for table in tables:
-        # Contagem de registros
-        count = pd.read_sql(f"SELECT COUNT(*) FROM {table}", conn).iloc[0, 0]
-        
-        # Amostragem para validar se as colunas complexas (mass, success) estão populadas
-        print(f"{table:<15} | {count:<10} | Validado")
+    with conn:
+        cur = conn.cursor()
+        for table in tables:
+            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            count, = cur.fetchone()
+            cur.execute(f"SELECT MAX(rowid) FROM {table}")
+            last_update, = cur.fetchone()
+            print(f"{table:<15} | {count:<10} | {last_update[0]}")
 
-    # Insight Rápido: Taxa de Sucesso Total da SpaceX
-    success_rate = pd.read_sql("SELECT AVG(success) * 100 FROM launches WHERE success IS NOT NULL", conn).iloc[0, 0]
+    # Quick Insight: SpaceX Overall Success Rate
     print("-" * 50)
-    print(f"Taxa de Sucesso Histórica (Launches): {success_rate:.2f}%")
+    cur.execute("SELECT AVG(success) * 100 FROM launches WHERE success IS NOT NULL")
+    success_rate, = cur.fetchone()
+    print(f"Historical Success Rate (Launches): {success_rate[0]:.2f}%")
     
     conn.close()
 
