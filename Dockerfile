@@ -1,24 +1,27 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Impede o Python de gerar arquivos .pyc e permite logs em tempo real
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instala o UV
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.local/bin/:$PATH"
 
 WORKDIR /app
 
-# Instala dependências do sistema necessárias para o psycopg2 e polars
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Copia apenas os requisitos primeiro para aproveitar o cache do Docker
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml .
+# Instala dependências
+RUN uv pip install --system .
 
-# Copia o restante do código
 COPY . .
 
-# Comando para iniciar o modo 'serve'
+# Usar python src/main.py é mais direto para o método .serve()
 CMD ["python", "src/main.py"]
