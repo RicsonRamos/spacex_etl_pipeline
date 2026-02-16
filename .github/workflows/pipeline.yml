@@ -19,7 +19,7 @@ jobs:
           POSTGRES_PASSWORD: admin
           POSTGRES_DB: spacex_db
         ports:
-          - 5433:5433
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s
@@ -53,7 +53,7 @@ jobs:
       - name: Wait for PostgreSQL
         run: |
           for i in {1..10}; do
-            pg_isready -h localhost -p 5433 && break
+            pg_isready -h localhost -p 5432 && break
             echo "Waiting for database..."
             sleep 3
           done
@@ -61,7 +61,7 @@ jobs:
       # Run tests
       - name: Run Tests
         env:
-          DATABASE_URL: postgresql://postgres:admin@localhost:5433/spacex_db
+          DATABASE_URL: postgresql://postgres:admin@localhost:5432/spacex_db
           POSTGRES_HOST: localhost
           PYTHONPATH: .
         run: |
