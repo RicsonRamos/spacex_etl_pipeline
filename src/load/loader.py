@@ -1,112 +1,90 @@
+import re
 import structlog
 import polars as pl
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from src.config.settings import settings
+from src.database.models import Base
 
 logger = structlog.get_logger()
 
+
 class PostgresLoader:
-    """
-    A loader for loading data into a PostgreSQL database.
-    
-    The loader provides methods for creating tables if they do not exist,
-    and for upserting data into those tables.
-    """
-    def __init__(self):
-        """
-        Initialize the loader.
-        
-        The loader creates an engine from the database URL in the settings.
-        """
+    def __init__(self) -> None:
         self.engine = create_engine(
             settings.DATABASE_URL,
-            pool_pre_ping=True, 
-            pool_size=5         
+            pool_pre_ping=True,
+            future=True
         )
-        
-        self._schemas = {
-            "rockets": """
-                rocket_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT,
-                active BOOLEAN
-            """,
-            "launchpads": """
-                launchpad_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                locality TEXT,
-                region TEXT
-            """,
-            "payloads": """
-                payload_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT,
-                mass_kg FLOAT
-            """,
-            "launches": """
-                launch_id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                date_utc TIMESTAMPTZ NOT NULL,
-                success BOOLEAN,
-                flight_number INTEGER,
-                rocket_id TEXT,
-                launchpad_id TEXT,
-                launch_year INTEGER
-            """
-        }
 
-    def ensure_tables(self):
+    def ensure_tables(self) -> None:
         """
-        Ensure that all tables exist in the database.
-        
-        If a table does not exist, it is created with the schema defined
-        in the `_schemas` dictionary.
+        Garante que as tabelas definidas nos models existam no banco.
+        Observação: create_all NÃO altera tabelas existentes.
         """
-        with self.engine.begin() as conn:
-            for table_name, schema in self._schemas.items():
-                query = text(f"CREATE TABLE IF NOT EXISTS {table_name} ({schema});")
-                conn.execute(query)
-                logger.debug("Infraestrutura validada", table=table_name)
+        Base.metadata.create_all(self.engine)
 
-    def upsert_dataframe(self, df: pl.DataFrame, table_name: str, pk_col: str):
+    def _validate_identifier(self, name: str) -> None:
         """
-        Upsert a DataFrame into a table in the database.
-        
-        If the DataFrame is empty, a warning is logged and the method returns.
-        
-        The loader first ensures that the table exists, and then inserts
-        the data into the table. If a record already exists with the same
-        primary key, the record is updated with the new values.
+        Proteção básica contra SQL injection em table_name / pk_col.
+        Aceita apenas letras, números e underscore.
         """
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+            raise ValueError(f"Identificador inválido: {name}")
+
+    def upsert_dataframe(
+        self,
+        df: pl.DataFrame,
+        table_name: str,
+        pk_col: str
+    ) -> None:
+        """
+        Executa UPSERT (INSERT ... ON CONFLICT DO UPDATE)
+        a partir de um DataFrame Polars.
+        """
+
         if df.is_empty():
             logger.warning("Carga ignorada: DataFrame vazio.", table=table_name)
             return
 
+        self._validate_identifier(table_name)
+        self._validate_identifier(pk_col)
+
         self.ensure_tables()
 
         records = df.to_dicts()
-        cols = df.columns
-        
-        
-        update_stmt = ", ".join([f"{c} = EXCLUDED.{c}" for c in cols if c != pk_col])
+        columns = df.columns
 
-        query = text(f"""
-            INSERT INTO {table_name} ({", ".join(cols)})
-            VALUES ({", ".join([f":{c}" for c in cols])})
-            ON CONFLICT ({pk_col}) DO UPDATE SET {update_stmt};
+        update_clause = ", ".join(
+            f"{col} = EXCLUDED.{col}"
+            for col in columns
+            if col != pk_col
+        )
+
+        insert_stmt = text(f"""
+            INSERT INTO {table_name} ({", ".join(columns)})
+            VALUES ({", ".join(f":{col}" for col in columns)})
+            ON CONFLICT ({pk_col})
+            DO UPDATE SET {update_clause};
         """)
 
         try:
             with self.engine.begin() as conn:
-                conn.execute(query, records)
-                logger.info("Upsert concluído com sucesso", 
-                           table=table_name, 
-                           rows=df.height)
-        except Exception as e:
-            logger.error("Falha crítica no carregamento", 
-                        table=table_name, 
-                        error=str(e))
-            raise
+                conn.execute(insert_stmt, records)
 
+            logger.info(
+                "Upsert concluído",
+                table=table_name,
+                rows=len(records)
+            )
+
+        except SQLAlchemyError as exc:
+            logger.error(
+                "Falha crítica no carregamento",
+                table=table_name,
+                error=str(exc)
+            )
+            raise
+            
 
 loader = PostgresLoader()

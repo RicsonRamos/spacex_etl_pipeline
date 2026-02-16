@@ -6,19 +6,13 @@ logger = structlog.get_logger()
 
 class SpaceXTransformer:
     """
-    Class responsible for transforming data from the SpaceX API into a DataFrame format
+    Class responsible for transforming raw SpaceX API data into polished Polars DataFrames.
+    Ensures type safety, handles nulls, and standardizes datetime formats.
     """
 
     def _to_df(self, raw_data: List[Dict[str, Any]], endpoint: str) -> pl.DataFrame:
         """
-        Converts a list of dictionaries into a DataFrame.
-
-        Args:
-            raw_data (List[Dict[str, Any]]): List of dictionaries containing data from the SpaceX API
-            endpoint (str): Name of the endpoint being processed
-
-        Returns:
-            pl.DataFrame: DataFrame containing the transformed data
+        Converts raw list of dictionaries to a Polars DataFrame with basic empty check.
         """
         if not raw_data:
             logger.warning("Empty data received", endpoint=endpoint)
@@ -27,16 +21,11 @@ class SpaceXTransformer:
 
     def transform_rockets(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
-        Transforms data from the "rockets" endpoint into a DataFrame.
-
-        Args:
-            data (List[Dict[str, Any]]): List of dictionaries containing data from the "rockets" endpoint
-
-        Returns:
-            pl.DataFrame: DataFrame containing the transformed data
+        Transforms rocket data.
+        Maps 'id' to 'rocket_id' and enforces numeric types for costs and rates.
         """
         df = self._to_df(data, "rockets")
-        if df.is_empty(): return df # Proteção essencial
+        if df.is_empty(): return df
         
         return df.select([
             pl.col("id").alias("rocket_id"),
@@ -49,16 +38,11 @@ class SpaceXTransformer:
 
     def transform_launchpads(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
-        Transforms data from the "launchpads" endpoint into a DataFrame.
-
-        Args:
-            data (List[Dict[str, Any]]): List of dictionaries containing data from the "launchpads" endpoint
-
-        Returns:
-            pl.DataFrame: DataFrame containing the transformed data
+        Transforms launchpad data.
+        Maps 'id' to 'launchpad_id' for relational consistency.
         """
         df = self._to_df(data, "launchpads")
-        if df.is_empty(): return df # Proteção essencial
+        if df.is_empty(): return df
         
         return df.select([
             pl.col("id").alias("launchpad_id"),
@@ -67,16 +51,11 @@ class SpaceXTransformer:
 
     def transform_payloads(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
-        Transforms data from the "payloads" endpoint into a DataFrame.
-
-        Args:
-            data (List[Dict[str, Any]]): List of dictionaries containing data from the "payloads" endpoint
-
-        Returns:
-            pl.DataFrame: DataFrame containing the transformed data
+        Transforms payload data.
+        Handles null masses by filling with 0.0 before casting.
         """
         df = self._to_df(data, "payloads")
-        if df.is_empty(): return df # Proteção essencial
+        if df.is_empty(): return df
         
         return df.select([
             pl.col("id").alias("payload_id"),
@@ -88,21 +67,17 @@ class SpaceXTransformer:
 
     def transform_launches(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
-        Transforms data from the "launches" endpoint into a DataFrame.
-
-        Args:
-            data (List[Dict[str, Any]]): List of dictionaries containing data from the "launches" endpoint
-
-        Returns:
-            pl.DataFrame: DataFrame containing the transformed data
+        Transforms launch data.
+        Critical: Handles ISO8601 strings with 'Z' suffix using time_zone="UTC".
+        Extracts launch_year for analytical partitioning.
         """
         df = self._to_df(data, "launches")
-        if df.is_empty(): return df # Proteção essencial
+        if df.is_empty(): return df
         
         return (
             df.with_columns([
-                # A forma mais robusta de lidar com o ISO da SpaceX no Polars
-                pl.col("date_utc").str.to_datetime(utc=True, time_unit="ms"),
+                # Explicitly handle timezone-aware strings to avoid ComputeError
+                pl.col("date_utc").str.to_datetime(time_zone="UTC"),
                 pl.col("success").cast(pl.Boolean)
             ])
             .with_columns([

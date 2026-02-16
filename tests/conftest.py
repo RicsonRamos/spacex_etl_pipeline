@@ -1,46 +1,35 @@
 import pytest
-import os
 from src.load.loader import PostgresLoader
+from src.database.models import Base
+from sqlalchemy import text
 
-
-@pytest.fixture(scope="session")
-def db_loader():
+@pytest.fixture
+def db_connection():
     """
-    Session-scoped fixture that initializes the PostgresLoader
-    using the database URL from the environment.
-
-    In GitHub Actions, the 'postgres' service automatically
-    defines the DATABASE_URL environment variable.
-
-    If DATABASE_URL is not set, a default local connection
-    string is used.
+    Fixture que retorna um loader com banco limpo e registros mínimos de FK para testes.
     """
-    # Get database connection string from environment variable
-    # Fallback to local PostgreSQL instance if not provided
-    return PostgresLoader()
+    loader = PostgresLoader()
 
+    # Limpa todas as tabelas existentes
+    Base.metadata.drop_all(loader.engine)
 
-@pytest.fixture(scope="function")
-def db_connection(db_loader):
-    """
-    Function-scoped fixture that resets the database state
-    before each test execution.
+    # Cria novamente com constraints corretas
+    Base.metadata.create_all(loader.engine)
 
-    It truncates the rockets, launches, and launchpads tables,
-    resets auto-incrementing IDs, and cascades to related tables.
+    # Seed mínimo para satisfazer FKs
+    with loader.engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO rockets (rocket_id, name, active, stages, cost_per_launch, success_rate_pct)
+            VALUES ('falcon9', 'Falcon 9', TRUE, 2, 50000000, 97)
+            ON CONFLICT (rocket_id) DO NOTHING
+        """))
+        conn.execute(text("""
+            INSERT INTO launchpads (launchpad_id, name, full_name, locality, region, status)
+            VALUES ('vafb_slc_4e', 'VAFB SLC-4E', 'Vandenberg AFB Space Launch Complex 4E', 'California', 'USA', 'active')
+            ON CONFLICT (launchpad_id) DO NOTHING
+        """))
 
-    The name 'db_connection' is intentionally used to match
-    existing test references and avoid 'fixture not found' errors.
-    """
-    # Open a database connection using SQLAlchemy engine
-    with db_loader.engine.connect() as conn:
-        # TRUNCATE removes all data without dropping the tables
-        # RESTART IDENTITY resets auto-increment counters
-        # CASCADE ensures related dependent records are also removed
-        conn.execute(
-            "TRUNCATE TABLE rockets, launches, launchpads RESTART IDENTITY CASCADE;"
-        )
-        conn.commit()
+    yield loader
 
-    # Return the loader instance for use in tests
-    return db_loader
+    # Opcional: limpar banco após testes
+    Base.metadata.drop_all(loader.engine)
