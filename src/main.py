@@ -4,16 +4,7 @@ from src.extract.spacex_api import SpaceXExtractor
 from src.transform.transformer import SpaceXTransformer
 from src.load.loader import PostgresLoader
 
-import os
-import sys
-
-print("--- DIAGNÓSTICO DE AMBIENTE ---")
-print(f"Diretório atual: {os.getcwd()}")
-print(f"Conteúdo de /app: {os.listdir('/app')}")
-print(f"PYTHONPATH: {sys.path}")
-print("-------------------------------")
-
-#@task(retries=3, retry_delay_seconds=10, name="Extrair Dados SpaceX")
+@task(retries=3, retry_delay_seconds=10, name="Extrair Dados SpaceX")
 def extract_data():
     """Extrai dados brutos da API da SpaceX com lógica de retry."""
     extractor = SpaceXExtractor()
@@ -25,7 +16,7 @@ def extract_data():
     
     return data
 
-#@task(name="Transformar Dados com Polars")
+@task(name="Transformar Dados com Polars")
 def transform_data(raw_data):
     """Aplica transformações via Polars e garante o esquema de colunas."""
     transformer = SpaceXTransformer()
@@ -38,7 +29,7 @@ def transform_data(raw_data):
         
     return df
 
-#@task(name="Carregar Dados no Postgres")
+@task(name="Carregar Dados no Postgres")
 def load_data(df):
     """Instancia o loader e executa o UPSERT baseado na chave de negócio."""
     loader = PostgresLoader()
@@ -48,7 +39,7 @@ def load_data(df):
     # O 'id' SERIAL do banco é gerado automaticamente e não deve ser o alvo do conflito.
     loader.upsert_dataframe(df, "launches", "launch_id")
 
-#@flow(name="SpaceX ETL Pipeline Main")
+@flow(name="SpaceX ETL Pipeline Main")
 def spacex_etl_flow():
     """Orquestração principal do processo ETL."""
     logger.info("Iniciando Flow de ETL da SpaceX")
