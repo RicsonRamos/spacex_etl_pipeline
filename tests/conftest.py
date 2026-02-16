@@ -1,6 +1,6 @@
 import pytest
 import os
-from src.load.postgres_loader import PostgresLoader
+from src.load.loader import PostgresLoader
 
 
 @pytest.fixture(scope="session")
