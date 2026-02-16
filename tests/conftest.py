@@ -17,14 +17,7 @@ def db_loader():
     """
     # Get database connection string from environment variable
     # Fallback to local PostgreSQL instance if not provided
-    db_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://postgres:admin@localhost:5432/spacex_db"
-    )
-
-    # Ensure that PostgresLoader accepts 'connection_string'
-    # as a parameter in its __init__ method
-    return PostgresLoader(connection_string=db_url)
+    return PostgresLoader()
 
 
 @pytest.fixture(scope="function")
