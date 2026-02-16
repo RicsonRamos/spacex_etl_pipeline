@@ -1,28 +1,53 @@
 import pytest
 import os
-from sqlalchemy import create_url
-from src.load.loader import PostgresLoader
+from src.load.postgres_loader import PostgresLoader
 
 
 @pytest.fixture(scope="session")
 def db_loader():
     """
-    Session-scoped fixture: Creates the loader only once for all tests.
-    Uses the DATABASE_URL defined in the environment (Docker or GitHub Actions).
+    Session-scoped fixture that initializes the PostgresLoader
+    using the database URL from the environment.
+
+    In GitHub Actions, the 'postgres' service automatically
+    defines the DATABASE_URL environment variable.
+
+    If DATABASE_URL is not set, a default local connection
+    string is used.
     """
-    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:admin@localhost:5432/spacex_db")
-    loader = PostgresLoader(connection_string=db_url)
-    return loader
+    # Get database connection string from environment variable
+    # Fallback to local PostgreSQL instance if not provided
+    db_url = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:admin@localhost:5432/spacex_db"
+    )
+
+    # Ensure that PostgresLoader accepts 'connection_string'
+    # as a parameter in its __init__ method
+    return PostgresLoader(connection_string=db_url)
 
 
 @pytest.fixture(scope="function")
-def db_setup(db_loader):
+def db_connection(db_loader):
     """
-    Function-scoped fixture: Ensures each test starts with a clean table.
-    Prevents data from 'Test A' from interfering with 'Test B' (Isolation).
+    Function-scoped fixture that resets the database state
+    before each test execution.
+
+    It truncates the rockets, launches, and launchpads tables,
+    resets auto-incrementing IDs, and cascades to related tables.
+
+    The name 'db_connection' is intentionally used to match
+    existing test references and avoid 'fixture not found' errors.
     """
-    # Cleanup logic (Truncate) before each load test
+    # Open a database connection using SQLAlchemy engine
     with db_loader.engine.connect() as conn:
-        conn.execute("TRUNCATE TABLE rockets, launches, launchpads RESTART IDENTITY CASCADE;")
+        # TRUNCATE removes all data without dropping the tables
+        # RESTART IDENTITY resets auto-increment counters
+        # CASCADE ensures related dependent records are also removed
+        conn.execute(
+            "TRUNCATE TABLE rockets, launches, launchpads RESTART IDENTITY CASCADE;"
+        )
         conn.commit()
+
+    # Return the loader instance for use in tests
     return db_loader
