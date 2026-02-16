@@ -1,33 +1,24 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
-# Instala dependências de sistema essenciais
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    gcc \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Instala o UV usando o instalador oficial (Garante que o binário funcione no ambiente slim)
-ADD https://astral.sh/uv/install.sh /uv-installer.sh
-RUN sh /uv-installer.sh && rm /uv-installer.sh
-ENV PATH="/root/.local/bin/:$PATH"
+# Impede o Python de gerar arquivos .pyc e permite logs em tempo real
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 WORKDIR /app
 
-# Evita arquivos .pyc e permite logs em tempo real
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+# Instala dependências do sistema necessárias para o psycopg2 e polars
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copia os arquivos de definição de projeto
-COPY pyproject.toml .
-# Caso exista o lockfile, remova o comentário abaixo
-# COPY uv.lock . 
-
-# Instala as dependências diretamente no Python do sistema do container
-RUN uv pip install --system .
+# Copia apenas os requisitos primeiro para aproveitar o cache do Docker
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copia o restante do código
 COPY . .
 
-CMD ["python", "-m", "src.main"]
+# Comando para iniciar o modo 'serve'
+CMD ["python", "src/main.py"]

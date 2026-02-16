@@ -1,48 +1,31 @@
-from pydantic import Field, computed_field
+from typing import Optional
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    """
-    Gerenciamento centralizado de configurações usando Pydantic.
-    Prioridade de carga: 
-    1. Variáveis de ambiente (OS) 
-    2. Arquivo .env 
-    3. Valores padrão (default)
-    """
-    
-    # --- API CONFIG ---
+    # --- API CONFIG (Adicione estes campos que estavam faltando) ---
     SPACEX_API_URL: str = Field(default="https://api.spacexdata.com/v4")
-    RETRIES: int = Field(default=3)
+    RETRIES: int = Field(default=3)  # O erro morre aqui
     TIMEOUT: int = Field(default=10)
 
     # --- POSTGRES CONFIG ---
-    # Nota: O host default 'db' refere-se ao nome do serviço no docker-compose.
-    POSTGRES_USER: str = Field(default="postgres")
-    POSTGRES_PASSWORD: str = Field(default="admin")
-    POSTGRES_HOST: str = Field(default="db") 
-    POSTGRES_PORT: int = Field(default=5432)
-    POSTGRES_DB: str = Field(default="spacex_db")
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "admin"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "spacex_db"
+    
+    DATABASE_URL: Optional[str] = None
 
-    # --- LOGGING ---
-    LOG_LEVEL: str = Field(default="INFO")
+    @model_validator(mode="after")
+    def build_db_url(self) -> "Settings":
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = (
+                f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+                f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            )
+        return self
 
-    @computed_field
-    @property
-    def DATABASE_URL(self) -> str:
-        """Monta a URL de conexão baseada nos componentes atuais."""
-        return (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
-            f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-        )
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # --- MODEL CONFIG ---
-    model_config = SettingsConfigDict(
-        env_file=".env", 
-        env_file_encoding="utf-8",
-        extra="ignore",
-        # Permite que variáveis de ambiente em MAIÚSCULO preencham os campos
-        case_sensitive=True 
-    )
-
-# Instância singleton para uso em todo o projeto
 settings = Settings()
