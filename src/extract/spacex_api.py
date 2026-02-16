@@ -17,7 +17,8 @@ class SpaceXExtractor:
     def __init__(self):
         """
         Initialize the extractor with the base URL and a session.
-        """
+        """ 
+        #loader.ensure_tables()
         self.base_url = settings.SPACEX_API_URL
         self.session = self._build_session()
     

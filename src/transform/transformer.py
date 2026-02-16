@@ -6,90 +6,159 @@ logger = structlog.get_logger()
 
 class SpaceXTransformer:
     """
-    Class responsible for transforming raw SpaceX API data into polished Polars DataFrames.
-    Ensures type safety, handles nulls, and standardizes datetime formats.
+    Responsible for transforming raw data from the API into Polars DataFrames.
+    Totally resilient to changes in the API: creates columns with null values or default values.
     """
 
     def _to_df(self, raw_data: List[Dict[str, Any]], endpoint: str) -> pl.DataFrame:
         """
-        Converts raw list of dictionaries to a Polars DataFrame with basic empty check.
+        Converts raw data into a Polars DataFrame.
+
+        Args:
+            raw_data: List of dictionaries containing raw data.
+            endpoint: Name of the endpoint being processed.
+
+        Returns:
+            pl.DataFrame: DataFrame containing the transformed data.
         """
         if not raw_data:
-            logger.warning("Empty data received", endpoint=endpoint)
+            logger.warning("No data received", endpoint=endpoint)
             return pl.DataFrame()
         return pl.from_dicts(raw_data)
 
     def transform_rockets(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
-        Transforms rocket data.
-        Maps 'id' to 'rocket_id' and enforces numeric types for costs and rates.
+        Transforms raw data from the "rockets" endpoint into a Polars DataFrame.
+
+        Args:
+            data: List of dictionaries containing raw data.
+
+        Returns:
+            pl.DataFrame: DataFrame containing the transformed data.
         """
         df = self._to_df(data, "rockets")
-        if df.is_empty(): return df
-        
-        return df.select([
-            pl.col("id").alias("rocket_id"),
-            "name", "type",
-            pl.col("active").cast(pl.Boolean),
-            pl.col("stages").cast(pl.Int32),
-            pl.col("cost_per_launch").cast(pl.Float64),
-            pl.col("success_rate_pct").cast(pl.Float64)
-        ])
+        if df.is_empty():
+            return df
+
+        # Rename id to rocket_id if it exists
+        if "id" in df.columns:
+            df = df.rename({"id": "rocket_id"})
+
+        # Create columns with default values if they don't exist
+        rocket_columns = {
+            "rocket_id": None,
+            "name": None,
+            "type": None,
+            "active": pl.Boolean,
+            "stages": pl.Int32,
+            "cost_per_launch": pl.Float64,
+            "success_rate_pct": pl.Float64
+        }
+
+        select_exprs = []
+        for col_name, col_type in rocket_columns.items():
+            if col_name in df.columns:
+                expr = pl.col(col_name)
+                if col_type:
+                    expr = expr.cast(col_type)
+                select_exprs.append(expr)
+            else:
+                # Create column with null values if it doesn't exist
+                if col_type == pl.Boolean:
+                    select_exprs.append(pl.lit(False).alias(col_name))
+                elif col_type:
+                    select_exprs.append(pl.lit(None).cast(col_type).alias(col_name))
+                else:
+                    select_exprs.append(pl.lit(None).alias(col_name))
+
+        return df.select(select_exprs)
 
     def transform_launchpads(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
-        Transforms launchpad data.
-        Maps 'id' to 'launchpad_id' for relational consistency.
+        Transforms raw data from the "launchpads" endpoint into a Polars DataFrame.
+
+        Args:
+            data: List of dictionaries containing raw data.
+
+        Returns:
+            pl.DataFrame: DataFrame containing the transformed data.
         """
         df = self._to_df(data, "launchpads")
-        if df.is_empty(): return df
-        
-        return df.select([
-            pl.col("id").alias("launchpad_id"),
-            "name", "full_name", "locality", "region", "status"
-        ])
+        if df.is_empty():
+            return df
 
-    def transform_payloads(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
-        """
-        Transforms payload data.
-        Handles null masses by filling with 0.0 before casting.
-        """
-        df = self._to_df(data, "payloads")
-        if df.is_empty(): return df
-        
-        return df.select([
-            pl.col("id").alias("payload_id"),
-            "name", "type",
-            pl.col("reused").cast(pl.Boolean),
-            pl.col("mass_kg").fill_null(0).cast(pl.Float64),
-            "orbit"
-        ])
+        if "id" in df.columns:
+            df = df.rename({"id": "launchpad_id"})
 
-    def transform_launches(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
+        launchpad_columns = {
+            "launchpad_id": None,
+            "name": None,
+            "full_name": None,
+            "locality": None,
+            "region": None,
+            "status": None
+        }
+
+        select_exprs = []
+        for col_name, col_type in launchpad_columns.items():
+            if col_name in df.columns:
+                expr = pl.col(col_name)
+                if col_type:
+                    expr = expr.cast(col_type)
+                select_exprs.append(expr)
+            else:
+                select_exprs.append(pl.lit(None).alias(col_name))
+
+        return df.select(select_exprs)
+
+    def transform_launch(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
-        Transforms launch data.
-        Critical: Handles ISO8601 strings with 'Z' suffix using time_zone="UTC".
-        Extracts launch_year for analytical partitioning.
+        Transforms raw data from the "launches" endpoint into a Polars DataFrame.
+
+        Args:
+            data: List of dictionaries containing raw data.
+
+        Returns:
+            pl.DataFrame: DataFrame containing the transformed data.
         """
         df = self._to_df(data, "launches")
-        if df.is_empty(): return df
-        
-        return (
-            df.with_columns([
-                # Explicitly handle timezone-aware strings to avoid ComputeError
-                pl.col("date_utc").str.to_datetime(time_zone="UTC"),
-                pl.col("success").cast(pl.Boolean)
-            ])
-            .with_columns([
-                pl.col("date_utc").dt.year().alias("launch_year")
-            ])
-            .select([
-                pl.col("id").alias("launch_id"),
-                "name", "date_utc", "success", "flight_number",
-                pl.col("rocket").alias("rocket_id"),
-                pl.col("launchpad").alias("launchpad_id"),
-                "launch_year"
-            ])
-        )
+        if df.is_empty():
+            return df
 
-transformer = SpaceXTransformer()
+        # Convert date_utc to datetime if it exists
+        if "date_utc" in df.columns and df["date_utc"].dtype == pl.Utf8:
+            df = df.with_columns([pl.col("date_utc").str.to_datetime(time_zone="UTC")])
+
+        # Rename id/rocket/launchpad columns
+        rename_map = {"id": "launch_id", "rocket": "rocket_id", "launchpad": "launchpad_id"}
+        actual_rename = {k: v for k, v in rename_map.items() if k in df.columns}
+        if actual_rename:
+            df = df.rename(actual_rename)
+
+        launch_columns = {
+            "launch_id": None,
+            "name": None,
+            "date_utc": None,
+            "success": pl.Boolean,
+            "flight_number": pl.Int32,
+            "rocket_id": None,
+            "launchpad_id": None
+        }
+
+        select_exprs = []
+        for col_name, col_type in launch_columns.items():
+            if col_name in df.columns:
+                expr = pl.col(col_name)
+                if col_type:
+                    expr = expr.cast(col_type)
+                select_exprs.append(expr)
+            else:
+                if col_type == pl.Boolean:
+                    select_exprs.append(pl.lit(False).alias(col_name))
+                elif col_type:
+                    select_exprs.append(pl.lit(None).cast(col_type).alias(col_name))
+                else:
+                    select_exprs.append(pl.lit(None).alias(col_name))
+
+        # Add year of launch
+
