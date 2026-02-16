@@ -46,7 +46,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:admin@localhost:5432/spacex_db
           POSTGRES_HOST: localhost
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: .
         run: |
           # Sets PYTHONPATH so pytest can find the /src directory
           export PYTHONPATH=$PYTHONPATH:$(pwd)

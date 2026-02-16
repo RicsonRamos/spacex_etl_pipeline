@@ -40,3 +40,10 @@ class LaunchpadSchema(BaseModel):
     name: str
     locality: str
     region: str
+
+ENDPOINT_SCHEMAS = {
+    "rockets": RocketSchema,
+    "launches": LaunchSchema,
+    "launchpads": LaunchpadSchema,
+    # Adicione outros se houver
+}
