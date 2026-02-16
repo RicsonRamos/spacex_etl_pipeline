@@ -6,16 +6,36 @@ logger = structlog.get_logger()
 
 class SpaceXTransformer:
     """
-    Motor de transformação de alta performance para os 4 domínios da SpaceX.
+    Class responsible for transforming the data extracted from the SpaceX API
+    into a suitable format for loading into a PostgreSQL database.
     """
-
+  
     def _to_df(self, raw_data: List[Dict[str, Any]], endpoint: str) -> pl.DataFrame:
+        """
+        Internal method to convert a list of dictionaries into a Polars DataFrame.
+
+        Args:
+            raw_data (List[Dict[str, Any]]): The data to be converted.
+            endpoint (str): The name of the endpoint the data was extracted from.
+
+        Returns:
+            pl.DataFrame: The DataFrame containing the converted data.
+        """
         if not raw_data:
-            logger.warn("Dados vazios recebidos", endpoint=endpoint)
+            logger.warn("Empty data received", endpoint=endpoint)
             return pl.DataFrame()
         return pl.from_dicts(raw_data)
 
     def transform_rockets(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
+        """
+        Method to transform the data extracted from the "rockets" endpoint.
+
+        Args:
+            data (List[Dict[str, Any]]): The data to be transformed.
+
+        Returns:
+            pl.DataFrame: The DataFrame containing the transformed data.
+        """
         df = self._to_df(data, "rockets")
         return (
             df.select([
@@ -30,6 +50,15 @@ class SpaceXTransformer:
         )
 
     def transform_launchpads(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
+        """
+        Method to transform the data extracted from the "launchpads" endpoint.
+
+        Args:
+            data (List[Dict[str, Any]]): The data to be transformed.
+
+        Returns:
+            pl.DataFrame: The DataFrame containing the transformed data.
+        """
         df = self._to_df(data, "launchpads")
         return (
             df.select([
@@ -43,6 +72,15 @@ class SpaceXTransformer:
         )
 
     def transform_payloads(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
+        """
+        Method to transform the data extracted from the "payloads" endpoint.
+
+        Args:
+            data (List[Dict[str, Any]]): The data to be transformed.
+
+        Returns:
+            pl.DataFrame: The DataFrame containing the transformed data.
+        """
         df = self._to_df(data, "payloads")
         return (
             df.with_columns(
@@ -58,7 +96,15 @@ class SpaceXTransformer:
         )
 
     def transform_launches(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
-        # CORREÇÃO: Passando o endpoint obrigatorio
+        """
+        Method to transform the data extracted from the "launches" endpoint.
+
+        Args:
+            data (List[Dict[str, Any]]): The data to be transformed.
+
+        Returns:
+            pl.DataFrame: The DataFrame containing the transformed data.
+        """
         df = self._to_df(data, "launches")
         
         return (
@@ -75,7 +121,7 @@ class SpaceXTransformer:
                 pl.col("success"),
                 pl.col("flight_number"),
                 pl.col("rocket").alias("rocket_id"),
-                # Verifique se 'launchpad' existe no seu LaunchSchema do Pydantic
+               
                 pl.col("launchpad").alias("launchpad_id") if "launchpad" in df.columns else pl.lit(None).alias("launchpad_id"),
                 pl.col("launch_year")
             ])

@@ -1,3 +1,4 @@
+# --- Core Dependencies ---
 requests>=2.31.0
 polars[rtcompat]>=0.20.0
 sqlalchemy>=2.0.0
@@ -7,6 +8,8 @@ pydantic-settings>=2.1.0
 structlog>=24.1.0
 prefect>=2.16.0
 python-dotenv>=1.0.0
+
+# --- Testing & Quality (Necessário para o CI/CD) ---
 pytest>=8.0.0
+pytest-mock==3.14.0
 ruff>=0.3.0
-ipykernel>=6.29.0

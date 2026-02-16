@@ -21,11 +21,11 @@ class LaunchSchema(BaseModel):
     rocket: str
     flight_number: int
     details: Optional[str] = None
-    # Verifique se o campo da API é 'payloads'. Se for, use o alias:
+    
     payloads: List[str] = Field(default_factory=list) 
 
     class Config:
-        # Isso ignora campos extras que venham da API mas não estejam no Schema
+        
         extra = "ignore"
 
 
@@ -42,8 +42,6 @@ class PayloadSchema(BaseModel):
     mass_kg: float
     orbit: str
     reused: bool
-
-# src/extract/schemas.py
 
 ENDPOINT_SCHEMAS = {
     "launches": LaunchSchema,

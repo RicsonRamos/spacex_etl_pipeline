@@ -3,39 +3,36 @@ services:
     image: postgres:16-alpine
     container_name: spacex_postgres
     restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=admin
-      - POSTGRES_DB=spacex_db
-    ports:
-      - "5432:5432"
+    env_file: .env # All credentials (USER, PASS, DB) come from this file
+    networks:
+      - backend_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d spacex_db"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s # 5s is too aggressive for some environments
       timeout: 5s
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   etl_app:
-      build: .
-      container_name: spacex_pipeline
-      restart: always
-      depends_on:
-        db:
-          condition: service_healthy
-      environment:
-        - POSTGRES_HOST=db
-        - PYTHONPATH=/app
-        
-        - PREFECT_API_KEY=${PREFECT_API_KEY}
-        - PREFECT_API_URL=${PREFECT_API_URL}
-        - POSTGRES_HOST=db
-        - PREFECT_CLIENT_TIMEOUT=60
+    build: .
+    container_name: spacex_pipeline
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - PYTHONPATH=/app
+      - POSTGRES_HOST=db # Internal hostname within Docker network
+    networks:
+      - frontend_network
+      - backend_network
 
-      env_file:
-        - .env
-
+networks:
+  frontend_network: # Internet access (SpaceX API + Prefect Cloud)
+  backend_network:  # Isolated (ETL <-> Postgres communication)
+    internal: true
 
 volumes:
   postgres_data:

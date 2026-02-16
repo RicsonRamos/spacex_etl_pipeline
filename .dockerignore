@@ -1,5 +1,26 @@
+# --- Ignore Git and Documentation ---
+.git
+.github
+README.md
+docs/
+
+# --- Ignore Local Environments (CRITICAL) ---
+# Docker should install its own dependencies via pip
 .venv/
+venv/
+env/
+
+# --- Ignore Tests and Cache Files ---
+tests/
+.pytest_cache/
+.ruff_cache/
 __pycache__/
-.git/
+
+# --- Ignore Local Data and Configurations ---
 .env
-*.egg-info/
+postgres_data/
+*.sqlite
+
+# --- Ignore IDE Metadata ---
+.vscode/
+.idea/

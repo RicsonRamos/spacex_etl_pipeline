@@ -1,74 +1,38 @@
-# --- Ambientes Virtuais e Dependências ---
+# --- Security (Secrets) ---
+.env
+*.env
+secrets.json
+
+# --- Virtual Environments ---
 .venv/
 venv/
-ENV/
 env/
 bin/
 lib/
 share/
-Include/
 pyvenv.cfg
 
-# --- Python / Compilação ---
+# --- Python & Cache ---
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 
-# --- Configurações e Segredos (CRÍTICO) ---
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.secrets
-*.pem
-*.key
+# --- Local Database (Persistent Docker) ---
+# If you use local volumes outside managed Docker
+postgres_data/
+*.sql
+*.sqlite
 
-# --- IDEs e Editores ---
+# --- IDEs & OS ---
 .vscode/
 .idea/
-*.swp
-*.swo
 .DS_Store
 Thumbs.db
 
-# --- Orquestração e Logs (Prefect / Structlog) ---
-.prefect/
-prefect.log
-*.log
-logs/
-
-# --- Bancos de Dados Locais e Infra ---
-.data/
-postgres_data/
-*.db
-*.sqlite3
-
-# --- Testes e Cobertura ---
-.pytest_cache/
-.tox/
-.nox/
-.coverage
-.htmlcov/
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
+# --- Project Metadata ---
+dist/
+build/
+*.egg-info/

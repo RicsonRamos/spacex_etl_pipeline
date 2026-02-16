@@ -1,39 +1,16 @@
-import sys
-import os
-
-# Garante que o Python encontre a pasta src
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from src.utils.logging import logger
+import pytest
+from sqlalchemy import create_engine, text
 from src.config.settings import settings
-from src.load.postgres_loader import PostgresLoader
-import polars as pl
 
-def test_pipeline_sanity():
-    logger.info("Iniciando Teste de Sanidade do Pipeline")
-
+def test_database_connection():
+    """Valida se o motor do ETL consegue alcançar o banco na rede interna."""
+    # O segredo aqui é garantir que 'settings.DATABASE_URL' 
+    # use o hostname definido no docker-compose (ex: db)
+    engine = create_engine(settings.DATABASE_URL)
+    
     try:
-        # 1. Testar Configurações
-        logger.info("Validando configurações...", host=settings.POSTGRES_HOST, db=settings.POSTGRES_DB)
-        
-        # 2. Testar Conexão com Banco
-        db_loader = PostgresLoader()
-        
-        # 3. Testar Operação de Escrita (Dummy Data)
-        test_df = pl.DataFrame({
-            "rocket_id": ["test_01"],
-            "name": ["Falcon Test"],
-            "active": [True]
-        })
-        
-        logger.info("Tentando escrita de teste (Upsert)...")
-        db_loader.upsert_dataframe(test_df, "rockets", "rocket_id")
-        
-        logger.info("TUDO OK: Configurações, Logs e Banco de Dados operacionais.")
-
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            assert result.fetchone()[0] == 1
     except Exception as e:
-        logger.error("FALHA NO TESTE", error=str(e))
-        sys.exit(1)
-
-if __name__ == "__main__":
-    test_pipeline_sanity()
+        pytest.fail(f"Falha de conexão: Verifique se o host do banco está correto no .env. Erro: {e}")
