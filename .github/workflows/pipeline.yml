@@ -44,10 +44,9 @@ jobs:
 
       - name: Run Tests
         env:
-          # Variables for tests to connect to the GitHub Actions database
           DATABASE_URL: postgresql://postgres:admin@localhost:5432/spacex_db
           POSTGRES_HOST: localhost
-          PREFECT_API_KEY: "test_mode" 
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           # Sets PYTHONPATH so pytest can find the /src directory
           export PYTHONPATH=$PYTHONPATH:$(pwd)
