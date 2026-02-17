@@ -1,0 +1,7 @@
+graph TD
+    A[ETL Deployment] --> B[Extract Task]
+    B --> C[Transform Task]
+    C --> D[Load Task]
+    D --> E[Retries and Alerts]
+    E --> F[Prefect Cloud UI]
+    

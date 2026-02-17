@@ -1,0 +1,17 @@
+erDiagram
+    ROCKETS {
+        int id PK
+        string name
+    }
+    LAUNCHES {
+        int id PK
+        int rocket_id FK
+        date date
+    }
+    MISSIONS {
+        int id PK
+        int launch_id FK
+        string name
+    }
+    ROCKETS ||--o{ LAUNCHES : has
+    LAUNCHES ||--o{ MISSIONS : contains

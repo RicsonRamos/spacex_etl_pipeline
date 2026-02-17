@@ -1,106 +1,213 @@
-# SpaceX High-Reliability ETL Pipeline
+````markdown
+# SpaceX ETL Pipeline
 
-## 1. Business Context and Objective
-
-Space exploration generates massive volumes of complex and highly volatile data. For mission analysts, inconsistent data can lead to incorrect conclusions about launch feasibility.
-
-This project implements an **End-to-End** data pipeline that extracts real data from the SpaceX API, processes it using **Polars** for maximum performance, and loads it **idempotently** into a **PostgreSQL** database—ensuring the database acts as a reliable **Single Source of Truth**.
-
----
-
-## 2. System Architecture
-
-The system was designed following the **Separation of Concerns** principle:
-
-- **Execution Plane:** Dockerized environment isolating Python 3.12 and PostgreSQL 16.
-- **Control Plane:** Orchestration via **Prefect Cloud**, managing retries, alerts, and scheduling.
-- **Data Layer:** PostgreSQL with strict schema enforcement and strong typing.
+[![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/)
+[![Prefect](https://img.shields.io/badge/prefect-2.0-orange)](https://www.prefect.io/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
 
-## 3. Senior-Level Technical Decisions
+## Overview
 
-### Data Engineering and Idempotency
+This repository contains a **modular ETL pipeline** that extracts SpaceX data from the public API, transforms it using **Polars**, and loads it into **PostgreSQL**. The pipeline is orchestrated with **Prefect**, enabling retries, logging, and cloud monitoring.  
 
-Unlike simple pipelines that only insert data, this project uses an **Upsert (ON CONFLICT DO UPDATE)** strategy.
-
-- **Why?** Ensures pipeline re-runs do not duplicate records and that corrections from the source API are automatically reflected in the database without manual intervention.
+It is designed for **scalable, maintainable, and testable** data ingestion workflows, suitable for production-ready ETL systems.
 
 ---
 
-### Strong Schema Enforcement
+## Architecture
 
-The loader was refactored to eliminate generic data types (`TEXT`).
+### ETL Workflow
 
-- **Decision:** Dates are stored as `TIMESTAMPTZ` and success flags as `BOOLEAN`.
-- **Impact:** 100% reduction in BI tool conversion errors and improved indexing performance.
+```mermaid
+graph TD
+    A[SpaceX API] --> B[Extract (Polars)]
+    B --> C[Transform (Polars)]
+    C --> D[Load (PostgreSQL)]
+    D --> E[Prefect Cloud Monitoring]
+````
 
----
-
-### Security and Network Isolation
-
-The `docker-compose.yml` file defines isolated internal networks.
-
-- **Decision:** The PostgreSQL database runs in a `backend_network` with no internet access. Only the ETL container can access both the external API and the database.
-- **Impact:** Protection against brute-force attacks on the database.
-
----
-
-### Observability and Structured Logging
-
-Implemented `structlog` with Prefect metadata injection (`flow_run_id`).
-
-- **Insight:** In production failures, structured logs allow precise tracing of which task and which endpoint (e.g., `rockets`) caused the issue, reducing **MTTR (Mean Time To Repair)**.
+**PNG version:**
+![ETL Flow](docs/diagrams/etl_flow.png)
 
 ---
 
-## 4. Project KPIs (Key Performance Indicators)
+### Dependencies
 
-| Metric | Value/Status | Technical Impact |
-|--------|-------------|-----------------|
-| **Idempotency Rate** | 100% | Zero duplicate records on re-runs |
-| **Resilience (Retries)** | 3 attempts | Tolerance to intermittent API network failures |
-| **Docker Build Time** | ~45s | Optimized via `.dockerignore` (reduced build context) |
-| **Test Coverage** | High | Unit tests for Extract, Transform, and Load |
-
----
-
-## 5. Repository Structure
-
-```text
-├── .github/workflows/  # CI/CD (GitHub Actions)
-├── src/
-│   ├── config/         # Secret management via Pydantic Settings
-│   ├── extract/        # API clients and Pydantic schemas
-│   ├── transform/      # Business logic with Polars
-│   ├── load/           # Idempotent loader with SQLAlchemy
-│   └── flows/          # Prefect orchestration
-├── tests/              # Test suite (Pytest + Mocks)
-├── docker-compose.yml  # Infrastructure as Code
-└── pyproject.toml      # Modern dependency management
+```mermaid
+graph LR
+    Python --> Polars
+    Python --> SQLAlchemy
+    SQLAlchemy --> PostgreSQL
+    Prefect --> Python
+    Prefect --> PostgreSQL
 ```
 
-## 6. How to Run
+**PNG version:**
+![Dependencies](docs/diagrams/dependencies.png)
 
-Prerequisites
-- Docker and Docker Compose
-- Prefect Cloud account (optional for local runs)
+---
 
-Step-by-Step
-1. Clone the repository.
-2. Create a .env file based on .env.example.
-3. Start the stack:
-```bash 
-docker-compose up -d --build
+### Database Model (ER Diagram)
+
+```mermaid
+erDiagram
+    ROCKETS {
+        int id PK
+        string name
+    }
+    LAUNCHES {
+        int id PK
+        int rocket_id FK
+        date date
+    }
+    MISSIONS {
+        int id PK
+        int launch_id FK
+        string name
+    }
+    ROCKETS ||--o{ LAUNCHES : has
+    LAUNCHES ||--o{ MISSIONS : contains
 ```
-4. Run the tests to validate integrity:
-```bash 
-docker-compose run --rm etl_app pytest tests/
+
+**PNG version:**
+![ER Model](docs/diagrams/er_model.png)
+
+---
+
+### Prefect Orchestration Flow
+
+```mermaid
+graph TD
+    A[ETL Deployment] --> B[Extract Task]
+    B --> C[Transform Task]
+    C --> D[Load Task]
+    D --> E[Retries & Alerts]
+    E --> F[Prefect Cloud UI]
+```
+
+**PNG version:**
+![Prefect Flow](docs/diagrams/prefect_flow.png)
+
+---
+
+## Features
+
+* **Extract:** Fetches raw SpaceX API data using Polars for high-performance ingestion.
+* **Transform:** Cleans and normalizes raw data into structured tables.
+* **Load:** Inserts transformed data into PostgreSQL with transactional safety.
+* **Orchestration:** Prefect provides task retries, logging, and cloud monitoring.
+* **Testing:** Pytest integration ensures database connectivity and data correctness.
+* **Configurable:** Environment variables control database credentials and Prefect API keys.
+
+---
+
+## Getting Started
+
+### Requirements
+
+* Python 3.11+
+* PostgreSQL 15+
+* Prefect Cloud account (optional but recommended)
+* Git
+
+### Installation
+
+```bash
+git clone https://github.com/RicsonRamos/spacex_etl_pipeline.git
+cd spacex_etl_pipeline
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Configuration
+
+Create a `.env` file:
+
+```env
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=admin
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=spacex_db
+
+PREFECT_API_KEY=<your_prefect_api_key>
+PREFECT_API_URL=<your_prefect_api_url>
+DATABASE_URL=postgresql://postgres:admin@localhost:5432/spacex_db
+```
+
+---
+
+## Running the ETL
+
+**Locally:**
+
+```bash
+python -m src.main
+```
+
+**Using Prefect Cloud:**
+
+```bash
+prefect deployment apply deployments/etl_deployment.yaml
+prefect flow run "spacex_etl_pipeline"
+```
+
+---
+
+## Testing
+
+```bash
+pytest tests/ -v --maxfail=1 --disable-warnings
+```
+
+* Ensures **database connection**, API availability, and data consistency.
+* CI/CD pipelines can use these tests for automated validation.
+
+---
+
+## Project Structure
 
 ```
-## 7. Engineering Insights
+spacex_etl_pipeline/
+├─ src/
+│  ├─ extract.py       # Data extraction logic
+│  ├─ transform.py     # Data transformation logic
+│  ├─ load.py          # Database loading logic
+│  ├─ main.py          # ETL orchestration
+│  └─ settings.py      # Environment variables & configuration
+├─ tests/              # Pytest tests
+├─ requirements.txt
+├─ pyproject.toml
+└─ README.md
+```
 
-During development, we identified that the SpaceX API contains deeply nested fields. The decision to use Polars instead of Pandas was driven by scalability concerns: Polars handles large memory workloads more efficiently and provides an expression-based syntax that makes schema transformations (flattening struct fields into columns) more readable and performant.
+---
+
+## Contributing
+
+* Fork the repository
+* Create a feature branch (`git checkout -b feature/xyz`)
+* Make your changes with tests
+* Submit a pull request
+
+---
+
+## License
+
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+---
+
+## References
+
+* [SpaceX API](https://github.com/r-spacex/SpaceX-API)
+* [Polars](https://www.pola.rs/)
+* [SQLAlchemy](https://www.sqlalchemy.org/)
+* [Prefect](https://www.prefect.io/)
+
+---
 
 Developed by Ricson Ramos
 Data Analyst & Software Engineer
