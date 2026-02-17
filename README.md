@@ -25,9 +25,6 @@ graph TD
     C --> D[Load - PostgreSQL]
     D --> E[Prefect Cloud Monitoring]
 ```
-
-![ETL Flow](docs/diagrams/etl_flow.png)
-
 ---
 
 ### Dependencies
@@ -40,8 +37,6 @@ graph LR
     Prefect --> Python
     Prefect --> PostgreSQL
 ```
-
-![Dependencies](docs/diagrams/dependencies.png)
 
 ---
 
@@ -67,8 +62,6 @@ erDiagram
     LAUNCHES ||--o{ MISSIONS : contains
 ```
 
-![ER Model](docs/diagrams/er_model.png)
-
 ---
 
 ### Prefect Orchestration Flow
@@ -81,8 +74,6 @@ graph TD
     D --> E[Retries and Alerts]
     E --> F[Prefect Cloud UI]
 ```
-
-![Prefect Flow](docs/diagrams/prefect_flow.png)
 
 ---
 
