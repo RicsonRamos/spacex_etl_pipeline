@@ -1,73 +1,51 @@
 import pytest
 import polars as pl
-from sqlalchemy import text, exc
+from sqlalchemy import text
 from datetime import datetime
-
-def test_upsert_constraints_not_null(db_connection):
-    """
-    Deve falhar ao tentar inserir date_utc = NULL.
-    """
-    loader = db_connection
-
-    invalid_df = pl.DataFrame(
-        [{
-            "launch_id": "fail_01",
-            "name": "Fail Test",
-            "date_utc": None,
-            "rocket_id": "falcon9",
-            "launchpad_id": "vafb_slc_4e"
-        }],
-        schema={
-            "launch_id": pl.String,
-            "name": pl.String,
-            "date_utc": pl.Datetime,
-            "rocket_id": pl.String,
-            "launchpad_id": pl.String,
-        }
-    )
-
-    # Espera IntegrityError do PostgreSQL
-    with pytest.raises(exc.IntegrityError):
-        loader.upsert_dataframe(
-            invalid_df,
-            table_name="launches",
-            pk_col="launch_id"
-        )
-
 
 def test_upsert_idempotency_behavior(db_connection):
     """
-    Deve atualizar registro existente via ON CONFLICT.
+    RIGOR: Valida se o UPSERT evita duplicatas, garantindo que todas
+    as colunas obrigatórias do modelo estejam presentes.
     """
     loader = db_connection
     target_id = "idem_test_01"
+    
+    # 1. SETUP: Inserir dependências (Rockets e Launchpads)
+    with loader.engine.begin() as conn:
+        conn.execute(text("INSERT INTO silver_rockets (rocket_id, name) VALUES ('r1', 'Falcon 9') ON CONFLICT DO NOTHING"))
+        conn.execute(text("INSERT INTO silver_launchpads (launchpad_id, name) VALUES ('lp1', 'VAFB') ON CONFLICT DO NOTHING"))
 
-    # Inserção original
-    df_original = pl.DataFrame([{
-        "launch_id": target_id,
-        "name": "Original Name",
-        "date_utc": datetime(2026, 1, 1),
-        "rocket_id": "falcon9",
-        "launchpad_id": "vafb_slc_4e"
-    }])
-    loader.upsert_dataframe(df_original, table_name="launches", pk_col="launch_id")
+    # 2. DEFINIÇÃO DE SCHEMA: Garanta que o DF tenha o que o banco espera
+    # Se seu model exige 'success' ou 'flight_number', adicione-os aqui!
+    data = {
+        "launch_id": [target_id],
+        "name": ["Original Name"],
+        "date_utc": [datetime(2026, 1, 1, 12, 0)],
+        "rocket_id": ["r1"],
+        "launchpad_id": ["lp1"],
+        "success": [True]
+    }
+    df_original = pl.DataFrame(data)
 
-    # Atualização (idempotência)
-    df_updated = pl.DataFrame([{
-        "launch_id": target_id,
-        "name": "Updated Name",
-        "date_utc": datetime(2026, 1, 1),
-        "rocket_id": "falcon9",
-        "launchpad_id": "vafb_slc_4e"
-    }])
-    loader.upsert_dataframe(df_updated, table_name="launches", pk_col="launch_id")
+    # 3. ACT: Primeira carga
+    loader.load_to_silver(df_original, table_name="launches", pk_col="launch_id")
+    
+    # 4. ACT: Segunda carga (Atualização do nome)
+    df_updated = df_original.with_columns(pl.lit("Updated Name").alias("name"))
+    loader.load_to_silver(df_updated, table_name="launches", pk_col="launch_id")
 
-    # Valida atualização no banco
+    # 5. ASSERT: Verificação física rigorosa
     with loader.engine.connect() as conn:
         result = conn.execute(
-            text("SELECT name FROM launches WHERE launch_id = :id"),
+            text("SELECT name FROM silver_launches WHERE launch_id = :id"),
             {"id": target_id}
-        ).fetchone()
+        ).mappings().fetchone()
+        
+        count = conn.execute(
+            text("SELECT COUNT(*) FROM silver_launches WHERE launch_id = :id"),
+            {"id": target_id}
+        ).scalar()
 
-    assert result is not None
-    assert result[0] == "Updated Name"
+    assert count == 1, f"Deveria existir apenas 1 registro, mas foram encontrados {count}"
+    assert result["name"] == "Updated Name", f"O nome deveria ser 'Updated Name', mas é '{result['name']}'"

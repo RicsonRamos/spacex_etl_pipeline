@@ -1,99 +1,73 @@
 from prefect import flow, task
 from src.extract.spacex_api import SpaceXExtractor
 from src.transform.transformer import SpaceXTransformer
-from src.load.loader import PostgresLoader
+from src.load.loader import PostgresLoader, AlertHandler
+from src.config.settings import settings
+from src.database.models import Base
 import structlog
-from typing import List, Dict, Any
 import polars as pl
 
 logger = structlog.get_logger()
 
+# RIGOR: Não instancie o loader globalmente para evitar erros de 'pickle'
+def get_loader():
+    alerts = AlertHandler(slack_webhook_url=settings.SLACK_WEBHOOK_URL)
+    return PostgresLoader(alert_handler=alerts)
+
 @task(name="Extraction", retries=2)
-def extract_task(endpoint: str) -> List[Dict[str, Any]]:
-    """
-    Task responsible for extracting data from the SpaceX API.
-
-    Args:
-        endpoint (str): The endpoint to extract data from (e.g. "rockets", "launchpads", etc.)
-
-    Returns:
-        List[Dict[str, Any]]: A list of dictionaries containing the extracted data.
-
-    Raises:
-        requests.exceptions.HTTPError: If the API returns a status code other than 200.
-    """
+def extract_task(endpoint: str):
     return SpaceXExtractor().fetch_data(endpoint)
 
 @task(name="Transformation")
-def transform_task(data: List[Dict[str, Any]], endpoint: str) -> pl.DataFrame:
-    """
-    Task responsible for transforming the extracted data into a pandas DataFrame.
-
-    Args:
-        data (List[Dict[str, Any]]): The extracted data in the form of a list of dictionaries.
-        endpoint (str): The endpoint from which the data was extracted (e.g. "rockets", "launchpads", etc.).
-
-    Returns:
-        pl.DataFrame: A pandas DataFrame containing the transformed data.
-
-    Raises:
-        AttributeError: If the Transformer does not have a method with the name transform_<endpoint>.
-    """
+def transform_task(data: list, endpoint: str):
     transformer = SpaceXTransformer()
-    
-    # Dynamically call transform_rockets, transform_launches, etc.
     method_name = f"transform_{endpoint}"
     if hasattr(transformer, method_name):
         return getattr(transformer, method_name)(data)
-    raise AttributeError(f"Method {method_name} not found in Transformer.")
+    raise AttributeError(f"Method {method_name} not found.")
 
-@task(name="Loading")
-def load_task(df: pl.DataFrame, table_name: str, pk: str):
-    """
-    Task responsible for loading the transformed data into a PostgreSQL database.
+@task(name="Load_to_Bronze")
+def load_bronze_task(data: list, endpoint: str):
+    loader = get_loader()
+    loader.load_to_bronze(data, endpoint)
 
-    Args:
-        df (pl.DataFrame): The transformed data in the form of a pandas DataFrame.
-        table_name (str): The name of the table in the PostgreSQL database to load the data into.
-        pk (str): The name of the primary key column in the table.
+@task(name="Load_to_Silver")
+def load_silver_task(df: pl.DataFrame, table_name: str, pk: str):
+    loader = get_loader()
+    loader.load_to_silver(df, table_name, pk)
 
-    Raises:
-        sqlalchemy.exc.SQLAlchemyError: If an error occurs during the loading process.
-    """
-    loader = PostgresLoader()
-    loader.upsert_dataframe(df, table_name, pk)
+@task(name="Refresh_Gold")
+def refresh_gold_task():
+    loader = get_loader()
+    loader.refresh_gold_layer()
 
-@flow(name="SpaceX_ETL_Full")
+@flow(name="SpaceX_Medallion_Pipeline")
 def spacex_etl_flow():
-    """
-    Main flow: Ensures that the dim tables (rockets and launchpads) are loaded 
-    before the fact table (launches).
-    """
-    loader = PostgresLoader()
-    loader.ensure_tables()
+    loader = get_loader()
+    Base.metadata.create_all(loader.engine)
 
-    # 1. Load Rockets (Dim table)
-    raw_rockets = extract_task("rockets")
-    df_rockets = transform_task(raw_rockets, "rockets")
-    load_task(df_rockets, "rockets", "rocket_id")
-    logger.info("Loaded rockets dim table.")
+    endpoints = {
+        "rockets": "rocket_id",
+        "launchpads": "launchpad_id",
+        "payloads": "payload_id",
+        "launches": "launch_id"
+    }
 
-    # 2. Load Launchpads (Dim table)
-    raw_pads = extract_task("launchpads")
-    df_pads = transform_task(raw_pads, "launchpads")
-    load_task(df_pads, "launchpads", "launchpad_id")
-    logger.info("Loaded launchpads dim table.")
+    for ep, pk in endpoints.items():
+        # 1. BRONZE
+        raw_data = extract_task(ep)
+        load_bronze_task(raw_data, ep)
+        
+        # 2. SILVER
+        df_transformed = transform_task(raw_data, ep)
+        load_silver_task(df_transformed, ep, pk)
 
-    # 3. Load Launches (Fact table - depends on rockets and launchpads)
-    raw_launches = extract_task("launches")
-    df_launches = transform_task(raw_launches, "launches")
-    load_task(df_launches, "launches", "launch_id")
-    logger.info("Loaded launches fact table.")
-    logger.info("ETL finished successfully and referential integrity maintained.")
+    # 3. GOLD
+    refresh_gold_task()
 
 if __name__ == "__main__":
-    spacex_etl_flow.serve(
-        name="spacex-etl-prod",
-        tags=["production"],
-        cron="0 3 * * *"
-    )
+    # COMENTE O SERVE PARA TESTAR:
+    spacex_etl_flow.serve(name="spacex-etl-prod")
+    
+    # RODE DIRETAMENTE:
+    #spacex_etl_flow()

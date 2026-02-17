@@ -1,7 +1,9 @@
 import re
 import structlog
+import json
 import polars as pl
-from datetime import datetime
+from datetime import datetime, date  # Adicionado date para rigor
+from typing import List, Dict, Any
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
@@ -9,260 +11,149 @@ from src.config.settings import settings
 from src.database.models import Base, ETLMetrics
 import requests
 
-# Logger configuration
 logger = structlog.get_logger()
 
-# Alert Handler Class to send Slack notifications
-class AlertHandler:
-    """Simple alert handler to send notifications to Slack."""
+# RIGOR: Função auxiliar para serialização JSON
+def json_serial(obj):
+    """Serializador JSON para tipos não suportados nativamente (datetime, date)."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
 
+class AlertHandler:
     def __init__(self, slack_webhook_url: str = None):
         self.slack_webhook_url = slack_webhook_url
 
     def send_slack_alert(self, message: str):
-        """Send an alert to Slack if webhook URL is configured."""
-        if not self.slack_webhook_url:
-            return
-        payload = {"text": message}
+        if not self.slack_webhook_url: return
         try:
-            requests.post(self.slack_webhook_url, json=payload, timeout=5)
-        except Exception as exc:
-            logger.error("Failed to send Slack alert", error=str(exc))
-
+            requests.post(self.slack_webhook_url, json={"text": message}, timeout=5)
+        except Exception as e:
+            logger.error("Failed to send Slack alert", error=str(e))
 
 class PostgresLoader:
     def __init__(self, alert_handler: AlertHandler = None) -> None:
-        """Initializes the Postgres loader."""
-        self.engine = create_engine(
-            settings.DATABASE_URL,
-            pool_pre_ping=True,
-            future=True
-        )
+        self.engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, future=True)
         self.Session = sessionmaker(bind=self.engine)
         self.alert_handler = alert_handler
 
-    def log_metrics(
-        self,
-        table_name: str,
-        stage: str,
-        rows_processed: int,
-        status: str,
-        start_time: datetime,
-        end_time: datetime,
-        error: str = None
-    ) -> None:
-        """Log ETL metrics into the database using ORM."""
-        session = self.Session()
-
-        # Create ETLMetrics instance
-        metrics = ETLMetrics(
-            table_name=table_name,
-            stage=stage,
-            rows_processed=rows_processed,
-            status=status,
-            start_time=start_time,
-            end_time=end_time,
-            error=error
-        )
-
-        try:
-            session.add(metrics)
-            session.commit()
-        except Exception as exc:
-            session.rollback()
-            logger.error(f"Failed to log metrics: {exc}")
-        finally:
-            session.close()
-
-    def ensure_tables(self) -> None:
-        """Ensure ORM tables exist in the database."""
-        Base.metadata.create_all(self.engine)
-
-    def ensure_staging_table(self) -> None:
-        """Ensure staging table exists in the database."""
-        create_sql = """
-        CREATE TABLE IF NOT EXISTS staging_launches (
-            id SERIAL PRIMARY KEY,
-            launch_id TEXT,
-            name TEXT,
-            date_utc TIMESTAMP,
-            raw_data JSONB,
-            ingestion_time TIMESTAMP DEFAULT NOW()
-        );
-        """
-        with self.engine.begin() as conn:
-            conn.execute(text(create_sql))
-        logger.info(
-            "Staging table ensured",
-            stage="staging",
-            table="staging_launches",
-            timestamp=datetime.now().isoformat()
-        )
-
     def _validate_identifier(self, name: str) -> None:
-        """Basic protection against SQL injection for table names/columns."""
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
             raise ValueError(f"Invalid identifier: {name}")
 
-    def upsert_dataframe(self, df: pl.DataFrame, table_name: str, pk_col: str) -> None:
-        """Perform UPSERT operation (INSERT ON CONFLICT DO UPDATE) using Polars DataFrame."""
-        if df.is_empty():
-            logger.warning(
-                "Upsert skipped: empty DataFrame",
-                table=table_name,
-                stage="final"
+    def log_metrics(self, table_name: str, stage: str, rows_processed: int, status: str, 
+                    start_time: datetime, end_time: datetime, error: str = None) -> None:
+        session = self.Session()
+        try:
+            metrics = ETLMetrics(
+                table_name=table_name, stage=stage, rows_processed=rows_processed,
+                status=status, start_time=start_time, end_time=end_time, error=error
             )
-            return
+            session.add(metrics)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to log metrics: {e}")
+        finally:
+            session.close()
 
-        # Validate table name and primary key column
+    def load_to_bronze(self, data: List[Dict[str, Any]], endpoint: str) -> None:
+        table_name = f"bronze_{endpoint}"
+        start_time = datetime.now()
+        sql = f"CREATE TABLE IF NOT EXISTS {table_name} (id SERIAL PRIMARY KEY, raw_data JSONB, extracted_at TIMESTAMP DEFAULT NOW())"
+        
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(text(sql))
+                
+                # CORREÇÃO RIGOROSA: default=json_serial resolve o erro de 'datetime is not JSON serializable'
+                params = [{"raw_data": json.dumps(d, default=json_serial)} for d in data]
+                
+                conn.execute(
+                    text(f"INSERT INTO {table_name} (raw_data) VALUES (:raw_data)"), 
+                    params
+                )
+            self.log_metrics(table_name, "bronze", len(data), "success", start_time, datetime.now())
+        except Exception as e:
+            self.log_metrics(table_name, "bronze", len(data), "failure", start_time, datetime.now(), str(e))
+            raise
+
+    def load_to_silver(self, df: pl.DataFrame, table_name: str, pk_col: str) -> None:
+        full_table_name = f"silver_{table_name}"
+        self.upsert_dataframe(df, full_table_name, pk_col)
+
+    def upsert_dataframe(self, df: pl.DataFrame, table_name: str, pk_col: str) -> None:
+        if df.is_empty(): return
         self._validate_identifier(table_name)
         self._validate_identifier(pk_col)
-
-        # Ensure tables are created before performing upsert
-        self.ensure_tables()
-
-        records = df.to_dicts()
+        
+        # Garante criação das tabelas baseadas no models.py
+        Base.metadata.create_all(self.engine)
+        
         columns = df.columns
-
-        # Generate update clause excluding the primary key column
-        update_clause = ", ".join(
-            f"{col} = EXCLUDED.{col}" for col in columns if col != pk_col
-        )
-
-        # SQL insert statement with upsert logic (ON CONFLICT DO UPDATE)
+        update_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in columns if c != pk_col)
         insert_stmt = text(f"""
             INSERT INTO {table_name} ({", ".join(columns)})
-            VALUES ({", ".join(f":{col}" for col in columns)})
-            ON CONFLICT ({pk_col})
-            DO UPDATE SET {update_clause};
+            VALUES ({", ".join(f":{c}" for c in columns)})
+            ON CONFLICT ({pk_col}) DO UPDATE SET {update_clause};
         """)
-
+        
         start_time = datetime.now()
+        error_to_log = None
         try:
             with self.engine.begin() as conn:
-                conn.execute(insert_stmt, records)
-
-            logger.info(
-                "Upsert completed",
-                stage="final",
-                table=table_name,
-                rows=len(records),
-                timestamp=datetime.now().isoformat()
-            )
-
-        except SQLAlchemyError as exc:
-            logger.error(
-                "Critical failure during upsert",
-                stage="final",
-                table=table_name,
-                error=str(exc),
-                timestamp=datetime.now().isoformat()
-            )
-            if self.alert_handler:
-                self.alert_handler.send_slack_alert(
-                    f"ETL Failure on table {table_name}: {exc}"
-                )
-            raise
+                conn.execute(insert_stmt, df.to_dicts())
+            logger.info("Upsert completed", table=table_name)
+        except SQLAlchemyError as e:
+            error_to_log = str(e)
+            if self.alert_handler: self.alert_handler.send_slack_alert(f"Fail {table_name}: {e}")
+            raise 
         finally:
-            end_time = datetime.now()
-            self.log_metrics(
-                table_name=table_name,
-                stage="final",
-                rows_processed=len(records),
-                status="success" if not exc else "failure",
-                start_time=start_time,
-                end_time=end_time,
-                error=str(exc) if exc else None
-            )
+            self.log_metrics(table_name, "silver", len(df), "success" if not error_to_log else "failure",
+                            start_time, datetime.now(), error_to_log)
 
-    def load_to_staging(self, df: pl.DataFrame) -> None:
-        """Load raw data into the staging table."""
+    def refresh_gold_layer(self) -> None:
         start_time = datetime.now()
-        rows = len(df)
-        status = "success"
-        error_msg = None
-
+        gold_view_name = "gold_cost_efficiency_metrics"
+        
+        # RIGOR: Adicionado COALESCE no custo para evitar divisões por NULL e filtragem de massa zero
+        query = f"""
+        CREATE OR REPLACE VIEW {gold_view_name} AS
+        WITH payload_agg AS (
+            SELECT 
+                launch_id,
+                SUM(COALESCE(mass_kg, 0)) as total_mass_kg
+            FROM silver_payloads
+            GROUP BY launch_id
+        )
+        SELECT 
+            r.name AS rocket_name,
+            COUNT(l.launch_id) AS total_launches,
+            AVG(COALESCE(r.cost_per_launch, 0)) AS avg_rocket_cost,
+            SUM(p.total_mass_kg) AS total_kg_delivered,
+            CASE 
+                WHEN SUM(p.total_mass_kg) > 0 
+                THEN (AVG(COALESCE(r.cost_per_launch, 0)) * COUNT(l.launch_id)) / SUM(p.total_mass_kg)
+                ELSE 0 
+            END AS avg_cost_per_kg
+        FROM silver_rockets r
+        JOIN silver_launches l ON r.rocket_id = l.rocket_id
+        LEFT JOIN payload_agg p ON l.launch_id = p.launch_id
+        WHERE l.success = true
+        GROUP BY r.name;
+        """
+        
         try:
-            if df.is_empty():
-                logger.warning(
-                    "Load skipped: empty DataFrame for staging",
-                    stage="staging",
-                    table="staging_launches"
-                )
-                rows = 0
-                return
-
-            self.ensure_staging_table()
-            records = df.to_dicts()
-
-            # Keep a copy of raw data
-            for rec in records:
-                rec['raw_data'] = rec.copy()
-
-            columns = list(records[0].keys())
-            insert_stmt = text(f"""
-                INSERT INTO staging_launches ({', '.join(columns)})
-                VALUES ({', '.join(f':{col}' for col in columns)});
-            """)
-
             with self.engine.begin() as conn:
-                conn.execute(insert_stmt, records)
-
-            logger.info(
-                "Staging load completed",
-                stage="staging",
-                table="staging_launches",
-                rows=rows,
-                timestamp=datetime.now().isoformat()
-            )
-
-        except SQLAlchemyError as exc:
-            status = "failure"
-            error_msg = str(exc)
-            logger.error(
-                "Critical failure during staging load",
-                stage="staging",
-                table="staging_launches",
-                error=error_msg,
-                timestamp=datetime.now().isoformat()
-            )
-            if self.alert_handler:
-                self.alert_handler.send_slack_alert(
-                    f"ETL Failure during staging load: {error_msg}"
-                )
+                conn.execute(text(query))
+            
+            logger.info("Gold layer refreshed", view=gold_view_name)
+            self.log_metrics(gold_view_name, "gold", 1, "success", start_time, datetime.now())
+        except Exception as e:
+            logger.error("Gold layer refresh failed", error=str(e))
+            self.log_metrics(gold_view_name, "gold", 0, "failure", start_time, datetime.now(), str(e))
             raise
 
-        finally:
-            end_time = datetime.now()
-            self.log_metrics(
-                table_name="staging_launches",
-                stage="staging",
-                rows_processed=rows,
-                status=status,
-                start_time=start_time,
-                end_time=end_time,
-                error=error_msg
-            )
-
-    def process_staging_to_final(self, final_table: str, pk_col: str) -> None:
-        """Move data from staging to the final table using upsert."""
-        self._validate_identifier(final_table)
-        self._validate_identifier(pk_col)
-
-        # Read data from staging table
-        df = pl.read_sql("SELECT launch_id, name, date_utc FROM staging_launches", self.engine)
-
-        # Example validation: discard rows without primary key
-        df_clean = df.filter(df['launch_id'].is_not_null())
-
-        # Perform upsert into final table
-        self.upsert_dataframe(df_clean, final_table, pk_col)
-
-        logger.info(f"Upsert iniciado para a tabela: {final_table}, PK: {pk_col}")
-
-
-# Create AlertHandler instance for Slack alerts
+# Instâncias globais
 alerts = AlertHandler(slack_webhook_url=settings.SLACK_WEBHOOK_URL)
-
-# Initialize the Postgres loader with the alert handler
 loader = PostgresLoader(alert_handler=alerts)

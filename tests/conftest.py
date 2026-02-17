@@ -1,35 +1,54 @@
 import pytest
-from src.load.loader import PostgresLoader
+import sqlalchemy
+from sqlalchemy import create_engine, text
 from src.database.models import Base
-from sqlalchemy import text
+from src.config.settings import settings
+from src.load.loader import PostgresLoader # Importe seu loader real
 
-@pytest.fixture
-def db_connection():
+@pytest.fixture(scope="session")
+def engine():
+    engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+    yield engine
+    engine.dispose()
+
+@pytest.fixture(scope="function")
+def db_connection(engine):
     """
-    Fixture que retorna um loader com banco limpo e registros mínimos de FK para testes.
+    Fixture que provê o objeto loader e limpa o banco.
+    Substitui a necessidade de criar loader manualmente nos testes.
     """
-    loader = PostgresLoader()
-
-    # Limpa todas as tabelas existentes
-    Base.metadata.drop_all(loader.engine)
-
-    # Cria novamente com constraints corretas
-    Base.metadata.create_all(loader.engine)
-
-    # Seed mínimo para satisfazer FKs
-    with loader.engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO rockets (rocket_id, name, active, stages, cost_per_launch, success_rate_pct)
-            VALUES ('falcon9', 'Falcon 9', TRUE, 2, 50000000, 97)
-            ON CONFLICT (rocket_id) DO NOTHING
-        """))
-        conn.execute(text("""
-            INSERT INTO launchpads (launchpad_id, name, full_name, locality, region, status)
-            VALUES ('vafb_slc_4e', 'VAFB SLC-4E', 'Vandenberg AFB Space Launch Complex 4E', 'California', 'USA', 'active')
-            ON CONFLICT (launchpad_id) DO NOTHING
-        """))
-
+    _force_cleanup(engine)
+    Base.metadata.create_all(engine)
+    
+    loader = PostgresLoader() # Certifique-se de que ele usa o mesmo engine/settings
     yield loader
+    
+    _force_cleanup(engine)
 
-    # Opcional: limpar banco após testes
-    Base.metadata.drop_all(loader.engine)
+def _force_cleanup(engine):
+    """
+    Remove objetos de forma atômica.
+    """
+    sync_statements = [
+        "DROP VIEW IF EXISTS gold_cost_efficiency_metrics CASCADE",
+        "DROP TABLE IF EXISTS silver_payloads CASCADE",
+        "DROP TABLE IF EXISTS silver_launches CASCADE",
+        "DROP TABLE IF EXISTS silver_rockets CASCADE",
+        "DROP TABLE IF EXISTS silver_launchpads CASCADE",
+        "DROP TABLE IF EXISTS etl_metrics CASCADE",
+        "DROP TABLE IF EXISTS bronze_rockets CASCADE",
+        "DROP TABLE IF EXISTS bronze_launches CASCADE",
+        "DROP TABLE IF EXISTS bronze_payloads CASCADE",
+        "DROP TABLE IF EXISTS bronze_launchpads CASCADE"
+    ]
+    
+    # RIGOR: Cada comando em uma transação separada para evitar aborto em cadeia
+    for stmt in sync_statements:
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("COMMIT")) # Garante que não há transação pendente
+                conn.execute(text(stmt))
+                conn.execute(text("COMMIT"))
+            except Exception:
+                # Se não puder dropar (ex: lock), passamos para o próximo
+                continue

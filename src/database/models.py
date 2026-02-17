@@ -1,76 +1,77 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
+from typing import List, Optional
+from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 class ETLMetrics(Base):
     __tablename__ = "etl_metrics"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    table_name = Column(String(255), nullable=False)
-    stage = Column(String(50), nullable=False)  # "staging" or "final"
-    rows_processed = Column(Integer)
-    status = Column(String(50))  # "success" or "failure"
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime)
-    error = Column(Text)  # Store any error message in case of failure
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<ETLMetrics(id={self.id}, table_name={self.table_name}, stage={self.stage}, status={self.status})>"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    table_name: Mapped[str] = mapped_column(String(255))
+    stage: Mapped[str] = mapped_column(String(50))
+    rows_processed: Mapped[Optional[int]]
+    status: Mapped[Optional[str]] = mapped_column(String(50))
+    start_time: Mapped[datetime] = mapped_column(DateTime)
+    end_time: Mapped[Optional[datetime]]
+    error: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
 class Rocket(Base):
-    __tablename__ = "rockets"
+    __tablename__ = "silver_rockets"
 
-    rocket_id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-    type = Column(String, nullable=True)
-    active = Column(Boolean, nullable=True)
-    stages = Column(Integer, nullable=True)
-    cost_per_launch = Column(Float, nullable=True)
-    success_rate_pct = Column(Float, nullable=True)
+    rocket_id: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    type: Mapped[Optional[str]]
+    active: Mapped[Optional[bool]]
+    stages: Mapped[Optional[int]]
+    cost_per_launch: Mapped[Optional[float]]
+    success_rate_pct: Mapped[Optional[float]]
 
-    # Relationship: One Rocket can have many Launches
-    launches = relationship("Launch", back_populates="rocket")
-
-    def __repr__(self):
-        return f"<Rocket(rocket_id={self.rocket_id}, name={self.name})>"
+    launches: Mapped[List["Launch"]] = relationship(back_populates="rocket")
 
 class Launchpad(Base):
-    __tablename__ = "launchpads"
+    __tablename__ = "silver_launchpads"
 
-    launchpad_id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-    full_name = Column(String, nullable=True)
-    locality = Column(String, nullable=True)
-    region = Column(String, nullable=True)
-    status = Column(String, nullable=True)
+    launchpad_id: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    full_name: Mapped[Optional[str]]
+    locality: Mapped[Optional[str]]
+    region: Mapped[Optional[str]]
+    status: Mapped[Optional[str]]
 
-    # Relationship: One Launchpad can have many Launches
-    launches = relationship("Launch", back_populates="launchpad")
+    launches: Mapped[List["Launch"]] = relationship(back_populates="launchpad")
 
-    def __repr__(self):
-        return f"<Launchpad(launchpad_id={self.launchpad_id}, name={self.name})>"
+class Payload(Base):
+    __tablename__ = "silver_payloads"
+
+    payload_id: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    type: Mapped[Optional[str]]
+    reused: Mapped[Optional[bool]]
+    mass_kg: Mapped[Optional[float]]
+    orbit: Mapped[Optional[str]]
+    date_created: Mapped[Optional[datetime]]
+    year_created: Mapped[Optional[int]]
+
+    # Nota técnica: Payloads na API v4 são ligados a Launches, 
+    # mas geralmente um Launch tem múltiplos Payloads.
+    launch_id: Mapped[Optional[str]] = mapped_column(ForeignKey("silver_launches.launch_id"))
 
 class Launch(Base):
-    __tablename__ = "launches"
+    __tablename__ = "silver_launches"
 
-    launch_id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-    date_utc = Column(DateTime, nullable=False)
-    success = Column(Boolean, nullable=True)
-    flight_number = Column(Integer, nullable=True)
-    launch_year = Column(Integer, nullable=True)
+    launch_id: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    date_utc: Mapped[datetime]
+    success: Mapped[Optional[bool]]
+    flight_number: Mapped[Optional[int]]
+    launch_year: Mapped[Optional[int]]
 
-    # Foreign Keys
-    rocket_id = Column(String, ForeignKey("rockets.rocket_id"), nullable=False)
-    launchpad_id = Column(String, ForeignKey("launchpads.launchpad_id"), nullable=False)
+    rocket_id: Mapped[str] = mapped_column(ForeignKey("silver_rockets.rocket_id"))
+    launchpad_id: Mapped[str] = mapped_column(ForeignKey("silver_launchpads.launchpad_id"))
 
-    # Relationships: backrefs to Rocket and Launchpad
-    rocket = relationship("Rocket", back_populates="launches")
-    launchpad = relationship("Launchpad", back_populates="launches")
-
-    def __repr__(self):
-        return f"<Launch(launch_id={self.launch_id}, name={self.name}, date_utc={self.date_utc})>"
+    rocket: Mapped["Rocket"] = relationship(back_populates="launches")
+    launchpad: Mapped["Launchpad"] = relationship(back_populates="launches")
