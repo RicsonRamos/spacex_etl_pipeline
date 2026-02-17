@@ -1,4 +1,3 @@
-````markdown
 # SpaceX ETL Pipeline
 
 [![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/)
@@ -21,13 +20,12 @@ It is designed for **scalable, maintainable, and testable** data ingestion workf
 
 ```mermaid
 graph TD
-    A[SpaceX API] --> B[Extract (Polars)]
-    B --> C[Transform (Polars)]
-    C --> D[Load (PostgreSQL)]
+    A[SpaceX API] --> B[Extract - Polars]
+    B --> C[Transform - Polars]
+    C --> D[Load - PostgreSQL]
     D --> E[Prefect Cloud Monitoring]
-````
+```
 
-**PNG version:**
 ![ETL Flow](docs/diagrams/etl_flow.png)
 
 ---
@@ -43,12 +41,11 @@ graph LR
     Prefect --> PostgreSQL
 ```
 
-**PNG version:**
 ![Dependencies](docs/diagrams/dependencies.png)
 
 ---
 
-### Database Model (ER Diagram)
+### Database Model - ER Diagram
 
 ```mermaid
 erDiagram
@@ -59,7 +56,7 @@ erDiagram
     LAUNCHES {
         int id PK
         int rocket_id FK
-        date date
+        date launch_date
     }
     MISSIONS {
         int id PK
@@ -70,7 +67,6 @@ erDiagram
     LAUNCHES ||--o{ MISSIONS : contains
 ```
 
-**PNG version:**
 ![ER Model](docs/diagrams/er_model.png)
 
 ---
@@ -82,11 +78,10 @@ graph TD
     A[ETL Deployment] --> B[Extract Task]
     B --> C[Transform Task]
     C --> D[Load Task]
-    D --> E[Retries & Alerts]
+    D --> E[Retries and Alerts]
     E --> F[Prefect Cloud UI]
 ```
 
-**PNG version:**
 ![Prefect Flow](docs/diagrams/prefect_flow.png)
 
 ---
@@ -97,7 +92,7 @@ graph TD
 * **Transform:** Cleans and normalizes raw data into structured tables.
 * **Load:** Inserts transformed data into PostgreSQL with transactional safety.
 * **Orchestration:** Prefect provides task retries, logging, and cloud monitoring.
-* **Testing:** Pytest integration ensures database connectivity and data correctness.
+* **Testing:** Pytest integration ensures database connectivity, API availability, and data correctness.
 * **Configurable:** Environment variables control database credentials and Prefect API keys.
 
 ---
@@ -108,7 +103,7 @@ graph TD
 
 * Python 3.11+
 * PostgreSQL 15+
-* Prefect Cloud account (optional but recommended)
+* Prefect Cloud account optional but recommended
 * Git
 
 ### Installation
@@ -132,8 +127,8 @@ POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=spacex_db
 
-PREFECT_API_KEY=<your_prefect_api_key>
-PREFECT_API_URL=<your_prefect_api_url>
+PREFECT_API_KEY=your_prefect_api_key
+PREFECT_API_URL=your_prefect_api_url
 DATABASE_URL=postgresql://postgres:admin@localhost:5432/spacex_db
 ```
 
@@ -141,17 +136,17 @@ DATABASE_URL=postgresql://postgres:admin@localhost:5432/spacex_db
 
 ## Running the ETL
 
-**Locally:**
+**Locally**
 
 ```bash
 python -m src.main
 ```
 
-**Using Prefect Cloud:**
+**Using Prefect Cloud**
 
 ```bash
 prefect deployment apply deployments/etl_deployment.yaml
-prefect flow run "spacex_etl_pipeline"
+prefect flow run spacex_etl_pipeline
 ```
 
 ---
@@ -162,8 +157,8 @@ prefect flow run "spacex_etl_pipeline"
 pytest tests/ -v --maxfail=1 --disable-warnings
 ```
 
-* Ensures **database connection**, API availability, and data consistency.
-* CI/CD pipelines can use these tests for automated validation.
+* Ensures database connection, API availability, and data consistency.
+* Can be integrated into CI/CD pipelines.
 
 ---
 
@@ -172,12 +167,12 @@ pytest tests/ -v --maxfail=1 --disable-warnings
 ```
 spacex_etl_pipeline/
 ├─ src/
-│  ├─ extract.py       # Data extraction logic
-│  ├─ transform.py     # Data transformation logic
-│  ├─ load.py          # Database loading logic
-│  ├─ main.py          # ETL orchestration
-│  └─ settings.py      # Environment variables & configuration
-├─ tests/              # Pytest tests
+│  ├─ extract.py
+│  ├─ transform.py
+│  ├─ load.py
+│  ├─ main.py
+│  └─ settings.py
+├─ tests/
 ├─ requirements.txt
 ├─ pyproject.toml
 └─ README.md
@@ -188,26 +183,26 @@ spacex_etl_pipeline/
 ## Contributing
 
 * Fork the repository
-* Create a feature branch (`git checkout -b feature/xyz`)
-* Make your changes with tests
+* Create a feature branch
+* Add tests for new features
 * Submit a pull request
 
 ---
 
 ## License
 
-This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License. See LICENSE for details.
 
 ---
 
 ## References
 
-* [SpaceX API](https://github.com/r-spacex/SpaceX-API)
-* [Polars](https://www.pola.rs/)
-* [SQLAlchemy](https://www.sqlalchemy.org/)
-* [Prefect](https://www.prefect.io/)
+* https://github.com/r-spacex/SpaceX-API
+* https://www.pola.rs/
+* https://www.sqlalchemy.org/
+* https://www.prefect.io/
 
 ---
 
-Developed by Ricson Ramos
-Data Analyst & Software Engineer
+Developed by Ricson Ramos  
+Data Analyst and Software Engineer
