@@ -3,6 +3,8 @@ from src.extract.spacex_api import SpaceXExtractor
 from src.transform.transformer import SpaceXTransformer
 from src.load.loader import PostgresLoader
 import structlog
+from typing import List, Dict, Any
+import polars as pl
 
 logger = structlog.get_logger()
 

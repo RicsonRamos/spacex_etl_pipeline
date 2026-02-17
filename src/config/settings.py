@@ -1,67 +1,82 @@
-import os
-from typing import Optional
-from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
+from dotenv import load_dotenv
+from typing import Optional
+import os
+
+# Carrega variáveis de ambiente do arquivo .env, se presente
+load_dotenv()
 
 class Settings(BaseSettings):
     """
-    Settings for the application.
+    Configuração para a aplicação.
+    Carrega configurações de variáveis de ambiente ou de um arquivo .env.
     """
 
-    #  API CONFIG 
+    # Configuração da API do SpaceX
     SPACEX_API_URL: str = Field(
-        default="https://api.spacexdata.com/v4",
-        description="The base URL of the SpaceX API",
+        default_factory=lambda: os.getenv("SPACEX_API_URL", "https://api.spacexdata.com/v4"), 
+        description="URL base da API SpaceX"
     )
     RETRIES: int = Field(
-        default=3,
-        description="The number of times to retry a failed request",
+        default_factory=lambda: int(os.getenv("RETRIES", 3)), 
+        description="Número de tentativas para uma requisição falhada"
     )
     TIMEOUT: int = Field(
-        default=10,
-        description="The timeout in seconds for a request",
+        default_factory=lambda: int(os.getenv("TIMEOUT", 10)), 
+        description="Timeout em segundos para requisições da API"
     )
 
-    #  POSTGRES CONFIG 
-  
+    # Configuração do banco de dados PostgreSQL
     POSTGRES_USER: str = Field(
-        default="postgres",
-        description="The username for the PostgreSQL database",
+        default_factory=lambda: os.getenv("POSTGRES_USER", "postgres"), 
+        description="Usuário do banco de dados PostgreSQL"
     )
     POSTGRES_PASSWORD: str = Field(
-        default="admin",
-        description="The password for the PostgreSQL database",
+        default_factory=lambda: os.getenv("POSTGRES_PASSWORD", "admin"), 
+        description="Senha do banco de dados PostgreSQL"
     )
     POSTGRES_HOST: str = Field(
-        default="localhost",
-        description="The hostname or IP address of the PostgreSQL server",
+        default_factory=lambda: os.getenv("POSTGRES_HOST", "localhost"), 
+        description="Host ou IP do servidor PostgreSQL"
     )
     POSTGRES_PORT: int = Field(
-        default=5432,
-        description="The port number of the PostgreSQL server",
+        default_factory=lambda: int(os.getenv("POSTGRES_PORT", 5432)), 
+        description="Porta do servidor PostgreSQL"
     )
     POSTGRES_DB: str = Field(
-        default="spacex_db",
-        description="The name of the PostgreSQL database",
+        default_factory=lambda: os.getenv("POSTGRES_DB", "spacex_db"), 
+        description="Nome do banco de dados PostgreSQL"
     )
-    
-    #  DYNAMIC DATABASE URL 
 
-    @computed_field
+    # Variável para gerar a URL do banco de dados (dinâmica)
     @property
     def DATABASE_URL(self) -> str:
         """
-        The dynamic database URL.
+        Constrói a URL de conexão com o PostgreSQL utilizando as configurações fornecidas.
         """
         return (
             f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
             f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-    model_config = SettingsConfigDict(
-        env_file=".env", 
-        extra="ignore",
-        env_ignore_empty=True 
+    # Configuração opcional de alerta para Slack
+    SLACK_WEBHOOK_URL: Optional[str] = Field(
+        default_factory=lambda: os.getenv("SLACK_WEBHOOK_URL", None),
+        description="URL do webhook do Slack para enviar alertas"
+    )
+    
+    # Nova variável PREFECT_API_KEY
+    PREFECT_API_KEY: Optional[str] = Field(
+        default_factory=lambda: os.getenv("PREFECT_API_KEY", None),
+        description="API Key do Prefect"
     )
 
+    model_config = SettingsConfigDict(
+        env_file=".env",  # Carrega as variáveis do arquivo .env
+        extra="ignore",  # Ignora variáveis extras não definidas no modelo
+        env_ignore_empty=True  # Ignora variáveis de ambiente vazias
+    )
+
+# Carrega a configuração do arquivo .env ou das variáveis de ambiente
 settings = Settings()

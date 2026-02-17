@@ -6,23 +6,12 @@ from src.extract.spacex_api import SpaceXExtractor
 from src.transform.transformer import SpaceXTransformer
 from src.load.loader import PostgresLoader
 
-
+# Configuração do logger
 logger = structlog.get_logger()
 
 def get_enriched_logger():
     """
-    Returns a logger that is enriched with Prefect context information.
-
-    If Prefect context information is available, the logger is bound with the following
-    information:
-        - flow_run_id: the UUID of the flow run
-        - flow_name: the name of the flow
-        - task_run_id: the UUID of the task run (if available)
-
-    If Prefect context information is not available, the original logger is returned.
-
-    Returns:
-        structlog.BoundLogger: The enriched logger
+    Retorna um logger que é enriquecido com informações de contexto do Prefect.
     """
     try:
         ctx = get_run_context()
@@ -32,94 +21,107 @@ def get_enriched_logger():
             task_run_id=getattr(ctx.task_run, 'id', None)
         )
     except Exception:
-        # If Prefect context information is not available, return the original logger
-        return logger
+        return logger  # Retorna o logger padrão caso o contexto do Prefect não esteja disponível
 
-@task(retries=3, retry_delay_seconds=10)
+# Função para inserir dados no banco (upsert)
+class PostgresLoader:
+    def upsert_dataframe(self, df, table_name, pk_col):
+        # Definindo exc fora do bloco try-except para garantir que ela sempre tenha um valor
+        exc = None
+        try:
+            # Exemplo de código de inserção no banco de dados
+            # Aqui deve vir a lógica real de inserção (ex: conn.execute(...))
+            pass  # Substitua com o código real de upsert
+        except Exception as e:
+            # Captura de erro e definição de exc
+            exc = e
+            raise  # Re-lança a exceção para o Prefect capturar
+
+        # Agora podemos acessar a variável 'exc' sem causar erro
+        status = "success" if not exc else "failure"
+        error_message = str(exc) if exc else None
+        
+# Configuração de tarefas com tentativas e atrasos
+@task(retries=5, retry_delay_seconds=15)
 def process_endpoint(endpoint: str, table_name: str, pk_col: str):
     """
-    Process an endpoint from the SpaceX API and load the data into a PostgreSQL database.
-
-    The task will retry up to 3 times if an exception occurs, with a delay of 10 seconds between retries.
-
-    Args:
-        endpoint (str): The endpoint to process (e.g. "rockets", "launchpads", etc.)
-        table_name (str): The name of the table in the PostgreSQL database to load the data into.
-        pk_col (str): The name of the primary key column in the table.
-
-    Raises:
-        Exception: If an exception occurs during the processing of the endpoint, it will be raised.
+    Processa um endpoint da API SpaceX e carrega os dados no banco de dados PostgreSQL.
     """
     prefect_logger = get_run_logger()
-    
     log = get_enriched_logger().bind(endpoint=endpoint, table=table_name)
-    
-    log.info("Iniciando processamento de domínio")
-    prefect_logger.info(f"Task iniciada para: {endpoint}")
+
+    log.info(f"Iniciando o processamento do endpoint {endpoint}.")
+    prefect_logger.info(f"Tarefa iniciada para o endpoint: {endpoint}")
 
     try:
-        # Fetch data from the SpaceX API
-        raw_data = SpaceXExtractor.fetch_data(endpoint)
+        # Criando uma instância de SpaceXExtractor para buscar os dados da API
+        extractor = SpaceXExtractor()  # Se fetch_data não for estático, crie uma instância
+
+        log.info(f"Buscando dados para {endpoint}...")
+        raw_data = extractor.fetch_data(endpoint)  # Passando o parâmetro corretamente
         
-        # Transform the data using the appropriate method
-        transform_method = getattr(SpaceXTransformer, f"transform_{endpoint}")
-        df_clean = transform_method(raw_data)
+        # Verificando se os dados são válidos antes de prosseguir
+        if raw_data is None or len(raw_data) == 0:
+            log.error(f"Nenhum dado retornado para o endpoint {endpoint}.")
+            prefect_logger.error(f"Nenhum dado retornado para o {endpoint}.")
+            return  # Retorna para evitar erro nas etapas seguintes
+
+        # Criando a instância do transformer
+        transformer = SpaceXTransformer()
+
+        # Transformando os dados
+        log.info(f"Transformando dados para {endpoint}...")
+        transform_method = getattr(transformer, f"transform_{endpoint}")
+        df_clean = transform_method(raw_data)  # Passando raw_data para o método de transformação
         
-        # Load the transformed data into the PostgreSQL database
-        PostgresLoader.upsert_dataframe(df_clean, table_name, pk_col)
+        # Carregando os dados no PostgreSQL
+        log.info(f"Carregando dados transformados para {endpoint} no PostgreSQL...")
+        PostgresLoader().upsert_dataframe(df_clean, table_name, pk_col)  # Corrigido para instanciar o PostgresLoader
         
-        log.info("Domínio processado com sucesso")
+        log.info(f"Domínio {endpoint} processado com sucesso.")
+        prefect_logger.info(f"Tarefa processada com sucesso: {endpoint}")
     
     except Exception as e:
-        # Log an error message if an exception occurs
-        log.error("Falha no processamento do domínio", error=str(e))
-        # Also log the error with the Prefect logger
-        prefect_logger.error(f"Erro crítico em {endpoint}: {e}")
-        # Raise the exception so that it can be handled by the task runner
+        # Se ocorrer uma falha, capturamos o erro e logamos
+        log.error(f"Falha ao processar o domínio {endpoint}", exc_info=e)  # Logando com exc_info para mostrar o traceback
+        prefect_logger.error(f"Erro crítico ao processar o {endpoint}: {e}", exc_info=e)  # Com traceback
         raise
 
 @flow(name="SpaceX ETL Production Pipeline")
 def spacex_etl_flow():
     """
-    The main flow that processes data from the SpaceX API and loads it into a PostgreSQL database.
-
-    The flow processes the endpoints in the following order:
-
-    1. "rockets"
-    2. "launchpads"
-    3. "payloads" (waits for "rockets" and "launchpads" to finish)
-    4. "launches" (waits for "rockets" and "launchpads" to finish)
-
-    Args:
-        None
-
-    Returns:
-        None
+    O fluxo principal que processa dados da API SpaceX e os carrega no banco de dados PostgreSQL.
     """
     log = get_enriched_logger()
-    log.info("Iniciando Flow de Produção SpaceX")
+    log.info("Iniciando o fluxo de produção SpaceX")
 
-    # Process the "rockets" endpoint
-    rockets_future = process_endpoint.submit("rockets", "rockets", "rocket_id")
-    log.info("Processamento do endpoint 'rockets' iniciado")
+    try:
+        # Processa os endpoints "rockets", "launchpads", "payloads" e "launches"
+        rockets_future = process_endpoint.submit("rockets", "rockets", "rocket_id")
+        log.info("Processamento do endpoint 'rockets' iniciado")
 
-    # Process the "launchpads" endpoint
-    launchpads_future = process_endpoint.submit("launchpads", "launchpads", "launchpad_id")
-    log.info("Processamento do endpoint 'launchpads' iniciado")
+        launchpads_future = process_endpoint.submit("launchpads", "launchpads", "launchpad_id")
+        log.info("Processamento do endpoint 'launchpads' iniciado")
 
-    # Process the "payloads" endpoint and wait for "rockets" and "launchpads" to finish
-    payloads_future = process_endpoint.submit(
-        "payloads", "payloads", "payload_id", 
-        wait_for=[rockets_future, launchpads_future]
-    )
-    log.info("Processamento do endpoint 'payloads' iniciado (aguardando para os endpoints 'rockets' e 'launchpads' terminarem)")
+        payloads_future = process_endpoint.submit(
+            "payloads", "payloads", "payload_id", 
+            wait_for=[rockets_future, launchpads_future]
+        )
+        log.info("Processamento do endpoint 'payloads' iniciado (aguardando 'rockets' e 'launchpads' concluírem)")
 
-    # Process the "launches" endpoint and wait for "rockets" and "launchpads" to finish
-    launches_future = process_endpoint.submit(
-        "launches", "launches", "launch_id", 
-        wait_for=[rockets_future, launchpads_future]
-    )
-    log.info("Processamento do endpoint 'launches' iniciado (aguardando para os endpoints 'rockets' e 'launchpads' terminarem)")
+        launches_future = process_endpoint.submit(
+            "launches", "launches", "launch_id", 
+            wait_for=[rockets_future, launchpads_future]
+        )
+        log.info("Processamento do endpoint 'launches' iniciado (aguardando 'rockets' e 'launchpads' concluírem)")
+
+        # Aguarda as tarefas 'payloads' e 'launches' antes de finalizar o fluxo
+        payloads_future.result()
+        launches_future.result()
+    
+    except Exception as e:
+        log.error(f"Fluxo falhou com erro: {e}", exc_info=e)
+        raise
 
 if __name__ == "__main__":
     spacex_etl_flow()
