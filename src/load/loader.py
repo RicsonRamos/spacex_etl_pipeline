@@ -112,48 +112,54 @@ class PostgresLoader:
             self.log_metrics(table_name, "silver", len(df), "success" if not error_to_log else "failure",
                             start_time, datetime.now(), error_to_log)
 
-    def refresh_gold_layer(self) -> None:
-        start_time = datetime.now()
-        gold_view_name = "gold_cost_efficiency_metrics"
-        
-        # RIGOR: Adicionado COALESCE no custo para evitar divisões por NULL e filtragem de massa zero
-        query = f"""
-        CREATE OR REPLACE VIEW {gold_view_name} AS
-        WITH payload_agg AS (
-            SELECT 
-                launch_id,
-                SUM(COALESCE(mass_kg, 0)) as total_mass_kg
-            FROM silver_payloads
-            GROUP BY launch_id
-        )
-        SELECT 
-            r.name AS rocket_name,
-            COUNT(l.launch_id) AS total_launches,
-            AVG(COALESCE(r.cost_per_launch, 0)) AS avg_rocket_cost,
-            SUM(p.total_mass_kg) AS total_kg_delivered,
-            CASE 
-                WHEN SUM(p.total_mass_kg) > 0 
-                THEN (AVG(COALESCE(r.cost_per_launch, 0)) * COUNT(l.launch_id)) / SUM(p.total_mass_kg)
-                ELSE 0 
-            END AS avg_cost_per_kg
-        FROM silver_rockets r
-        JOIN silver_launches l ON r.rocket_id = l.rocket_id
-        LEFT JOIN payload_agg p ON l.launch_id = p.launch_id
-        WHERE l.success = true
-        GROUP BY r.name;
+    def refresh_gold_layer(self):
         """
-        
-        try:
-            with self.engine.begin() as conn:
-                conn.execute(text(query))
-            
-            logger.info("Gold layer refreshed", view=gold_view_name)
-            self.log_metrics(gold_view_name, "gold", 1, "success", start_time, datetime.now())
-        except Exception as e:
-            logger.error("Gold layer refresh failed", error=str(e))
-            self.log_metrics(gold_view_name, "gold", 0, "failure", start_time, datetime.now(), str(e))
-            raise
+        Garante a atualização da camada Gold deletando a anterior 
+        para evitar conflitos de definição de colunas.
+        """
+        query = """
+            -- Passo 1: Remover a view antiga para resetar o esquema
+            DROP VIEW IF EXISTS gold_cost_efficiency_metrics;
 
+            -- Passo 2: Criar a nova estrutura com as colunas necessárias
+            CREATE VIEW gold_cost_efficiency_metrics AS
+            WITH launch_stats AS (
+                SELECT 
+                    r.name AS rocket_name,
+                    COUNT(l.launch_id) AS total_launches,
+                    (SUM(CASE WHEN l.success THEN 1 ELSE 0 END)::FLOAT / NULLIF(COUNT(l.launch_id), 0)) * 100 AS success_rate,
+                    AVG(r.cost_per_launch) AS avg_rocket_cost
+                FROM silver_rockets r
+                LEFT JOIN silver_launches l ON r.rocket_id = l.rocket_id
+                GROUP BY r.name
+            ),
+            payload_stats AS (
+                SELECT 
+                    r.name AS rocket_name,
+                    SUM(p.mass_kg) AS total_kg_delivered
+                FROM silver_rockets r
+                JOIN silver_launches l ON r.rocket_id = l.rocket_id
+                JOIN silver_payloads p ON l.launch_id = p.launch_id
+                GROUP BY r.name
+            )
+            SELECT 
+                ls.rocket_name,
+                ls.total_launches,
+                ls.success_rate,
+                ls.avg_rocket_cost,
+                COALESCE(ps.total_kg_delivered, 0) AS total_kg_delivered,
+                CASE 
+                    WHEN COALESCE(ps.total_kg_delivered, 0) > 0 
+                    THEN ls.avg_rocket_cost / ps.total_kg_delivered 
+                    ELSE 0 
+                END AS avg_cost_per_kg
+            FROM launch_stats ls
+            LEFT JOIN payload_stats ps ON ls.rocket_name = ps.rocket_name;
+        """
+        # Execução via SQLAlchemy (certifique-se de estar dentro de uma transação ou conexão)
+        with self.engine.begin() as conn:
+            conn.execute(text(query))
+            logger.info("Gold layer refreshed", view="gold_cost_efficiency_metrics")
 # Instâncias globais
 alerts = AlertHandler(slack_webhook_url=settings.SLACK_WEBHOOK_URL)
 loader = PostgresLoader(alert_handler=alerts)
