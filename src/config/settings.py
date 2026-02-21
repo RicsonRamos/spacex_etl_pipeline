@@ -20,13 +20,12 @@ class Settings(BaseSettings):
     # Notificações (Utilizado pelo Flow/Monitoring)
     SLACK_WEBHOOK_URL: Optional[str] = None
 
-    @computed_field
+        @computed_field
     @property
     def DATABASE_URL(self) -> str:
-        """URL de conexão formatada para SQLAlchemy 2.0."""
-        # Adicionado o driver +psycopg2 para garantir compatibilidade
+        """URL otimizada para Psycopg 3 (Driver moderno de 2026)."""
         return (
-            f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+            f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
             f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
