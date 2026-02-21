@@ -3,12 +3,12 @@ from pydantic import Field, computed_field
 from typing import Optional
 
 class Settings(BaseSettings):
-    """Gestão de configuração centralizada."""
+    """Gestão de configuração centralizada e tipada."""
 
     # API SpaceX
     SPACEX_API_URL: str = "https://api.spacexdata.com/v5"
     API_RETRIES: int = Field(default=3, ge=1)
-    API_TIMEOUT: int = Field(default=30, ge=1) # Aumentado para 30s por segurança
+    API_TIMEOUT: int = Field(default=30, ge=1)
 
     # Database
     POSTGRES_USER: str
@@ -17,13 +17,16 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str
 
-    # Notificações (Utilizado pelo Flow/Monitoring)
+    # Monitoramento
     SLACK_WEBHOOK_URL: Optional[str] = None
 
-        @computed_field
+    @computed_field
     @property
     def DATABASE_URL(self) -> str:
-        """URL otimizada para Psycopg 3 (Driver moderno de 2026)."""
+        """
+        URL de conexão formatada para SQLAlchemy 2.0.
+        Utiliza o driver Psycopg 3 (moderno/assíncrono).
+        """
         return (
             f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
             f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
