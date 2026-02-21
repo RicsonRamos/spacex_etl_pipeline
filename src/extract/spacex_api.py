@@ -1,83 +1,71 @@
 import requests
 import structlog
-from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
+
 from src.extract.schemas import API_SCHEMAS
 from src.config.settings import settings
 
 logger = structlog.get_logger()
 
 class SpaceXExtractor:
+    """Classe responsável pela comunicação bruta e validação de contrato com a API."""
+
     def __init__(self):
         self.session = requests.Session()
-        # Configuração de timeout global para evitar que o worker do Prefect trave
-        self.timeout = getattr(settings, "API_TIMEOUT", 30)
+        self.timeout = settings.API_TIMEOUT
+        
+        # Configuração de Retentativas (Exponential Backoff)
+        retries = Retry(
+            total=settings.API_RETRIES,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504]
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
 
-    def fetch(
-        self, 
-        endpoint: str, 
-        incremental: bool = False, 
-        last_ingested: Optional[datetime] = None
-    ) -> List[Dict[str, Any]]:
+    def fetch(self, endpoint: str) -> List[Dict[str, Any]]:
         """
-        Busca dados da API e aplica validação Pydantic.
-        Suporta lógica incremental filtrando por data de referência.
+        Busca dados da API e aplica validação via Pydantic Schemas.
+        Qualquer erro de conexão interrompe o pipeline (Fail-Fast).
         """
         url = f"{settings.SPACEX_API_URL}/{endpoint}"
         schema = API_SCHEMAS.get(endpoint)
+
+        logger.info("Iniciando extração de API", endpoint=endpoint, url=url)
 
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
-            logger.error("Falha na requisição HTTP", endpoint=endpoint, error=str(e))
+            logger.error("Erro crítico na requisição HTTP", endpoint=endpoint, error=str(e))
             raise
 
-        # 1. FILTRAGEM INCREMENTAL (Client-side)
-        # Se for launches e houver data de referência, filtramos antes da validação pesada
-        if incremental and last_ingested and endpoint == "launches":
-            data = self._filter_incremental(data, last_ingested)
-            logger.info("Filtro incremental aplicado", endpoint=endpoint, remaining=len(data))
-
         if not schema:
-            logger.warning("Nenhum schema Pydantic encontrado para o endpoint", endpoint=endpoint)
+            logger.warning("Schema não mapeado para este endpoint", endpoint=endpoint)
             return data
 
-        # 2. VALIDAÇÃO E PARSE
-        validated = []
-        for item in data:
-            try:
-                # Validação via Pydantic definida no Script 2 original
-                obj = schema(**item)
-                validated.append(obj.model_dump())
-            except Exception as e:
-                # Logamos o erro mas não paramos o pipeline por causa de um registro sujo
-                logger.error(
-                    "Payload inválido detectado", 
-                    endpoint=endpoint, 
-                    error=str(e), 
-                    record_id=item.get("id")
-                )
-        
-        return validated
+        # Validação e Parsing
+        validated_data = []
+        errors_count = 0
 
-    def _filter_incremental(self, data: List[Dict], last_date: datetime) -> List[Dict]:
-        """Filtra a lista de dicionários baseando-se no campo date_utc."""
-        filtered_data = []
         for item in data:
-            date_str = item.get("date_utc")
-            if not date_str:
-                continue
-            
             try:
-                # Converte ISO string da API para datetime aware para comparação segura
-                # A API SpaceX usa formato UTC (Z)
-                record_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                
-                if record_date > last_date:
-                    filtered_data.append(item)
-            except ValueError:
-                continue
-                
-        return filtered_data
+                # Validação Pydantic (extra="ignore" já garante limpeza)
+                obj = schema(**item)
+                validated_data.append(obj.model_dump())
+            except Exception as e:
+                errors_count += 1
+                # Registramos o erro mas mantemos o pipeline rodando para os dados válidos
+                logger.debug("Falha na validação de registro individual", 
+                             endpoint=endpoint, record_id=item.get("id"), error=str(e))
+
+        if errors_count > 0:
+            logger.warning("Extração finalizada com registros corrompidos", 
+                           endpoint=endpoint, valid=len(validated_data), skipped=errors_count)
+        else:
+            logger.info("Extração concluída com sucesso", 
+                        endpoint=endpoint, count=len(validated_data))
+
+        return validated_data
