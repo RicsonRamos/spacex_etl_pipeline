@@ -1,26 +1,26 @@
-# --- Ignore Git and Documentation ---
+# Ignorar controle de versão
 .git
-.github
-README.md
-docs/
+.gitignore
 
-# --- Ignore Local Environments (CRITICAL) ---
-# Docker should install its own dependencies via pip
-.venv/
+# Ignorar ambientes virtuais locais (o Docker cria o seu próprio)
 venv/
-env/
-
-# --- Ignore Tests and Cache Files ---
-tests/
-.pytest_cache/
-.ruff_cache/
+.venv/
 __pycache__/
 
-# --- Ignore Local Data and Configurations ---
+# Ignorar arquivos de segredos (devem entrar via env_file no compose)
 .env
-postgres_data/
-*.sqlite
 
-# --- Ignore IDE Metadata ---
-.vscode/
-.idea/
+# Ignorar artefatos do dbt (o container deve rodar o dbt build do zero)
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# Ignorar logs locais
+logs/
+*.log
+
+# Documentação e testes (opcional no container de produção)
+docs/
+tests/
+README.md
+docker-compose.yml
