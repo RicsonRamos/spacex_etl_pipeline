@@ -1,6 +1,7 @@
 import structlog
 import polars as pl
 import json
+from prefect import task
 from typing import List, Dict, Any
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -47,7 +48,15 @@ class PostgresLoader:
             logger.error("Bronze load failed", table=table_name, error=str(e))
             raise
 
-   
+    @task
+    def validate_launches(data: list[dict]):
+        for row in data:
+            if row.get("launch_id") is None:
+                raise ValueError(f"Missing launch_id in row: {row}")
+            if row.get("date_utc") is None:
+                raise ValueError(f"Missing date_utc in row: {row}")
+        return data
+    
     # SILVER
    
 

@@ -9,38 +9,56 @@ services:
     networks:
       - backend
     healthcheck:
-      # Corrigida a sintaxe de escape para variáveis de ambiente no shell do Docker
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # MAPEAMENTO VITAL: O arquivo local init.sql deve estar na mesma pasta deste compose
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
 
   etl_app:
     build: .
     container_name: spacex_pipeline
     depends_on:
       db:
-        condition: service_healthy # O app só inicia quando o DB estiver pronto e tabelas criadas
+        condition: service_healthy
     env_file: .env
     environment:
-      - POSTGRES_HOST=db
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PREFECT_LOGGING_LEVEL: INFO
     networks:
       - backend
       - internet
-    deploy:
-      resources:
-        limits:
-          memory: 1G
+    volumes:
+      - etl_logs:/app/logs
+    restart: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    command: >
+      sh -c "
+      while true; do
+        python src/main.py --incremental &&
+        sleep 3600;
+      done"
 
 networks:
   backend:
-    internal: true # Segurança: O DB não é exposto para a internet
+    internal: true
   internet:
-    driver: bridge # Necessário para o app buscar dados na API da SpaceX
+    driver: bridge
 
 volumes:
-  postgres_data: # Persistência de dados
+  postgres_data:
+  etl_logs:

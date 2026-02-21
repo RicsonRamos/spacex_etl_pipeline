@@ -1,15 +1,14 @@
-# --- Core Dependencies ---
-requests>=2.31.0
-polars[rtcompat]>=0.20.0
-sqlalchemy>=2.0.0
-psycopg2-binary>=2.9.0
-pydantic>=2.6.0
-pydantic-settings>=2.1.0
-structlog>=24.1.0
-prefect>=2.16.0
-python-dotenv>=1.0.0
-
-# --- Testing & Quality (Necessário para o CI/CD) ---
-pytest>=8.0.0
+prefect[slack]==2.16.0
+requests==2.32.1
+urllib3==2.0.5
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.22
+pandas==2.1.0
+polars==0.19.18
+pydantic==2.5.1
+great_expectations==0.16.21
+structlog==24.2.0
+prometheus-client==0.18.1
+pytest==9.0.2
 pytest-mock==3.14.0
-ruff>=0.3.0
+testcontainers==3.8.0

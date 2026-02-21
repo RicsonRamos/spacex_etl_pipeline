@@ -1,10 +1,8 @@
 import pytest
 import polars as pl
-from sqlalchemy import text
 from testcontainers.postgres import PostgresContainer
 from src.load.loader import PostgresLoader
-from src.database.models import Base
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 @pytest.fixture(scope="module")
 def postgres_container():

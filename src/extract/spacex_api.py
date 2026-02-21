@@ -1,16 +1,18 @@
 import requests
 import structlog
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from src.extract.schemas import ENDPOINT_SCHEMAS
 from src.config.settings import settings
+from datetime import datetime
 
 logger = structlog.get_logger()
 
+
 class SpaceXExtractor:
     def __init__(self):
-        # Otimização: Session deve ser persistente para reuso de conexões TCP/Keep-alive
+        # Reuso de sessão TCP/Keep-alive
         self.session = self._setup_session()
 
     def _setup_session(self) -> requests.Session:
@@ -18,33 +20,49 @@ class SpaceXExtractor:
         retries = Retry(
             total=settings.API_RETRIES,
             backoff_factor=1,
-            # 429 é vital para APIs públicas (Rate Limiting)
             status_forcelist=[429, 500, 502, 503, 504],
-            raise_on_status=False # Permite que o raise_for_status trate o erro
+            raise_on_status=False
         )
         session.mount("https://", HTTPAdapter(max_retries=retries))
         return session
 
-    def fetch(self, endpoint: str) -> List[Dict[str, Any]]:
+    def fetch(
+        self, 
+        endpoint: str, 
+        incremental: bool = False, 
+        last_ingested: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Busca dados do endpoint SpaceX.
+        Se incremental=True, filtra por last_ingested.
+        """
+
         url = f"{settings.SPACEX_API_URL}/{endpoint}"
+
         try:
-            logger.info("Iniciando extração", endpoint=endpoint)
+            logger.info("Iniciando extração", endpoint=endpoint, incremental=incremental)
             response = self.session.get(url, timeout=settings.API_TIMEOUT)
             response.raise_for_status()
-            
             data = response.json()
-            
-            # Validação Rigorosa de Schema
-            schema = ENDPOINT_SCHEMAS.get(endpoint)
-            if not schema:
-                # Falha Crítica: Não operamos sem schema definido em produção
-                logger.warning("Schema não encontrado para o endpoint. Retornando dados brutos.", endpoint=endpoint)
-                return data
 
-            # Processamento com validação Pydantic
-            # Retornamos model_dump() para garantir que o Polars receba dicionários puros
-            validated_data = [schema(**item).model_dump() for item in data]
-            
+            # Filtragem incremental
+            if incremental and last_ingested:
+                # Considera apenas itens com 'date_utc' maior que last_ingested
+                filtered_data = [
+                    item for item in data 
+                    if "date_utc" in item and datetime.fromisoformat(item["date_utc"].replace("Z", "+00:00")) > last_ingested
+                ]
+                logger.info("Filtragem incremental aplicada", endpoint=endpoint, original=len(data), filtered=len(filtered_data))
+                data = filtered_data
+
+            # Validação de schema
+            schema = ENDPOINT_SCHEMAS.get(endpoint)
+            if schema:
+                validated_data = [schema(**item).model_dump() for item in data]
+            else:
+                logger.warning("Schema não encontrado, retornando dados brutos", endpoint=endpoint)
+                validated_data = data
+
             logger.info("Extração concluída com sucesso", endpoint=endpoint, count=len(validated_data))
             return validated_data
 

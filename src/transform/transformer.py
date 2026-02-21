@@ -10,15 +10,19 @@ class SpaceXTransformer:
             logger.warning("Nenhum dado recebido para transformação", endpoint=endpoint)
             return pl.DataFrame()
             
-        # Carregamento inicial inferindo schemas
         df = pl.from_dicts(data)
         
-        # Padronização de PK (id -> {endpoint}_id)
+        # Padronização de PK
+        endpoint_pk_map = {
+            "launches": "launch_id",
+            "rockets": "rocket_id",
+            "launchpads": "launchpad_id"
+        }
         if "id" in df.columns:
-            pk_name = f"{endpoint.rstrip('s')}_id" # ex: rockets -> rocket_id
+            pk_name = endpoint_pk_map.get(endpoint, f"{endpoint.rstrip('s')}_id")
             df = df.rename({"id": pk_name})
         
-        # Dispatcher baseado em mapeamento (mais limpo que if/else)
+        # Dispatcher baseado em mapeamento
         dispatch_map = {
             "launches": self._transform_launches,
             "rockets": self._transform_rockets,
