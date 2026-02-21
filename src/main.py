@@ -1,34 +1,37 @@
 import structlog
+import argparse
 from src.flows.etl_flow import spacex_pipeline
 
+# Configuração básica de logs estruturados
 logger = structlog.get_logger()
 
 def main(incremental: bool = False):
     """
-    Executa o pipeline ETL da SpaceX.
-
-    Parâmetros:
-        incremental (bool): Se True, processa apenas novos registros.
+    Ponto de entrada que conecta a CLI ao Flow do Prefect.
     """
-    logger.info("Iniciando SpaceX Medallion Pipeline", incremental=incremental)
+    logger.info("Iniciando SpaceX Medallion Pipeline", 
+                mode="incremental" if incremental else "full")
 
     try:
-        # Chama o pipeline orquestrado pelo Prefect
-        spacex_pipeline()
+        # IMPORTANTE: O Flow 'spacex_pipeline' deve aceitar o argumento 'incremental'
+        spacex_pipeline(incremental=incremental)
+        
         logger.info("Pipeline finalizado com sucesso 🚀")
 
     except Exception as e:
-        logger.error("Pipeline falhou", error=str(e))
-        # Re-raise para que Prefect capture o erro e registre no dashboard
+        # O log de erro aqui é redundante se o Prefect estiver bem configurado, 
+        # mas útil para depuração local rápida.
+        logger.error("Falha catastrófica no ponto de entrada", error=str(e))
         raise
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Executa o ETL SpaceX Medallion Pipeline")
+    parser = argparse.ArgumentParser(description="SpaceX Medallion Pipeline CLI")
     parser.add_argument(
-        "--incremental", action="store_true", help="Processa apenas novos registros"
+        "--incremental", 
+        action="store_true", 
+        default=False,
+        help="Executa o pipeline processando apenas novos registros (delta load)"
     )
     args = parser.parse_args()
 
