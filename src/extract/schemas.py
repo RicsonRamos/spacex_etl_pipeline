@@ -1,53 +1,72 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 
-class BaseSchema(BaseModel):
-    """Configuração base para garantir compatibilidade com aliases e ignorar lixo da API."""
+
+class BaseAPISchema(BaseModel):
+
     model_config = ConfigDict(
-        from_attributes=True, 
-        populate_by_name=True, 
-        extra="ignore"
+        from_attributes=True,
+        extra="forbid"   # explode se mudar
     )
 
-class RocketSchema(BaseSchema):
-    rocket_id: str = Field(..., alias="id")
+
+# -------------------------
+# RAW API MODELS
+# -------------------------
+
+class RocketAPI(BaseAPISchema):
+
+    id: str
     name: str
     type: str
     active: bool
-    stages: Optional[int] = None
-    cost_per_launch: Optional[float] = None
-    success_rate_pct: Optional[float] = None
 
-class LaunchpadSchema(BaseSchema):
-    launchpad_id: str = Field(..., alias="id")
+    stages: Optional[int] = None
+    cost_per_launch: Optional[int] = None
+    success_rate_pct: Optional[int] = None
+
+
+class LaunchpadAPI(BaseAPISchema):
+
+    id: str
     full_name: str
     status: str
     locality: str
     region: str
-    # IDs dos foguetes que operam nesta base
+
     rockets: List[str] = []
 
-class LaunchSchema(BaseSchema):
-    launch_id: str = Field(..., alias="id")
+
+class LaunchAPI(BaseAPISchema):
+
+    id: str
     name: str
-    # Rigor: Mantido como str para evitar conflito com o Transformer.str.to_datetime() do Polars
-    date_utc: str 
+    date_utc: str
+
     success: Optional[bool] = None
     flight_number: int
-    rocket_id: str = Field(..., alias="rocket")
-    launchpad_id: str = Field(..., alias="launchpad")
 
-class CrewSchema(BaseSchema):
-    """O 4º endpoint comum em dados da SpaceX para fechar o ciclo básico."""
-    crew_id: str = Field(..., alias="id")
+    rocket: str
+    launchpad: str
+
+
+class CrewAPI(BaseAPISchema):
+
+    id: str
     name: str
     agency: str
     status: str
+
     image: Optional[str] = None
 
-ENDPOINT_SCHEMAS = {
-    "rockets": RocketSchema,
-    "launches": LaunchSchema,
-    "launchpads": LaunchpadSchema,
-    "crew": CrewSchema
+
+# -------------------------
+# REGISTRY
+# -------------------------
+
+API_SCHEMAS = {
+    "rockets": RocketAPI,
+    "launches": LaunchAPI,
+    "launchpads": LaunchpadAPI,
+    "crew": CrewAPI,
 }
