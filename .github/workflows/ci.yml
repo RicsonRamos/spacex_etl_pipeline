@@ -1,21 +1,22 @@
-name: ETL Pipeline CI
+name: SpaceX ETL CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
-  test:
+  quality-and-test:
     runs-on: ubuntu-latest
     services:
+      # Sobe um Postgres real para os testes de integração (Integration Tests)
       postgres:
-        image: postgres:15
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: spacex_db_test
         ports:
           - 5432:5432
         options: >-
@@ -23,13 +24,49 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.11
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run tests
-        run: pytest --maxfail=1 --disable-warnings -v
+          python-version: "3.12"
+
+      - name: Install 'uv' and Dependencies
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv pip install --system .
+          uv pip install --system pytest pytest-mock pytest-cov ruff
+
+      - name: Lint with Ruff (Static Analysis)
+        run: ruff check src/
+
+      - name: Run Unit & Integration Tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: spacex_db_test
+        run: |
+          pytest --cov=src tests/ -v
+
+      - name: Build Docker Image (Dry Run)
+        run: |
+          docker build -t spacex-pipeline:test .
+
+  # Job de Deploy (Opcional - Exemplo para Prefect Cloud)
+  deploy:
+    needs: quality-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Prefect Cloud
+        env:
+          PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
+          PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
+        run: |
+          pip install prefect
+          prefect deploy src/flows/etl_flow.py:spacex_main_pipeline -n prod-deployment
