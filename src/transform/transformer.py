@@ -2,6 +2,8 @@ import polars as pl
 import structlog
 from typing import List, Dict, Any
 
+from src.config.schema_registry import SCHEMA_REGISTRY
+
 logger = structlog.get_logger()
 
 
@@ -14,163 +16,53 @@ class SpaceXTransformer:
     ) -> pl.DataFrame:
 
         if not data:
-            logger.warning(
-                "Nenhum dado recebido",
-                endpoint=endpoint
-            )
+            logger.warning("Dataset vazio", endpoint=endpoint)
             return pl.DataFrame()
+
+        if endpoint not in SCHEMA_REGISTRY:
+            raise ValueError(f"Endpoint sem schema: {endpoint}")
+
+        schema = SCHEMA_REGISTRY[endpoint]
 
         try:
             df = pl.from_dicts(data)
-
         except Exception as e:
-            logger.exception(
-                "Erro ao criar DataFrame",
-                endpoint=endpoint,
-                error=str(e)
-            )
-            return pl.DataFrame()
+            logger.exception("Falha ao criar DataFrame", error=str(e))
+            raise
 
-        # -----------------------------
-        # PADRONIZAÇÃO DE PK
-        # -----------------------------
-        endpoint_pk_map = {
-            "launches": "launch_id",
-            "rockets": "rocket_id",
-            "launchpads": "launchpad_id"
-        }
+        # =====================================================
+        # RENAME
+        # =====================================================
+        if schema.rename:
+            df = df.rename(schema.rename)
 
-        if "id" in df.columns:
+        # =====================================================
+        # CAST
+        # =====================================================
+        for col, dtype in schema.casts.items():
 
-            pk_name = endpoint_pk_map.get(
-                endpoint,
-                f"{endpoint.rstrip('s')}_id"
+            if col not in df.columns:
+                raise ValueError(f"Coluna ausente: {col}")
+
+            df = df.with_columns(
+                pl.col(col).cast(dtype, strict=False)
             )
 
-            df = df.rename({"id": pk_name})
+        # =====================================================
+        # DERIVED
+        # =====================================================
+        for col, expr_fn in schema.derived.items():
 
-        # -----------------------------
-        # DISPATCHER
-        # -----------------------------
-        dispatch_map = {
-            "launches": self._transform_launches,
-            "rockets": self._transform_rockets,
-            "launchpads": self._transform_launchpads
-        }
-
-        transform_fn = dispatch_map.get(endpoint)
-
-        if not transform_fn:
-            logger.warning(
-                "Transformação padrão aplicada",
-                endpoint=endpoint
+            df = df.with_columns(
+                expr_fn(df).alias(col)
             )
-            return df
 
-        return transform_fn(df)
+        # =====================================================
+        # PK VALIDATION
+        # =====================================================
+        if schema.pk not in df.columns:
+            raise ValueError(f"PK ausente: {schema.pk}")
 
-    # =====================================================
-    # LAUNCHES
-    # =====================================================
-    def _transform_launches(
-        self,
-        df: pl.DataFrame
-    ) -> pl.DataFrame:
-
-        if "date_utc" not in df.columns:
-            logger.error("Coluna date_utc ausente")
-            return df
-
-        df = df.with_columns(
-            pl.col("date_utc")
-            .str.strptime(
-                pl.Datetime,
-                format="%Y-%m-%dT%H:%M:%S%.fZ",
-                strict=False
-            )
-            .dt.replace_time_zone("UTC")
-            .alias("launch_datetime")
-        )
-
-        df = df.with_columns(
-            pl.col("launch_datetime")
-            .dt.year()
-            .alias("launch_year")
-        )
+        df = df.unique(subset=[schema.pk])
 
         return df
-
-    # =====================================================
-    # ROCKETS
-    # =====================================================
-    def _transform_rockets(
-        self,
-        df: pl.DataFrame
-    ) -> pl.DataFrame:
-
-        required = [
-            "rocket_id",
-            "name",
-            "active",
-            "cost_per_launch",
-            "success_rate_pct"
-        ]
-
-        self._check_required_columns(df, required, "rockets")
-
-        return df.select([
-            pl.col("rocket_id"),
-            pl.col("name"),
-            pl.col("active").cast(pl.Boolean),
-            pl.col("cost_per_launch").cast(pl.Int64),
-            pl.col("success_rate_pct").cast(pl.Float64)
-        ])
-
-    # =====================================================
-    # LAUNCHPADS
-    # =====================================================
-    def _transform_launchpads(
-        self,
-        df: pl.DataFrame
-    ) -> pl.DataFrame:
-
-        required = [
-            "launchpad_id",
-            "full_name",
-            "status",
-            "rockets"
-        ]
-
-        self._check_required_columns(df, required, "launchpads")
-
-        return df.select([
-            pl.col("launchpad_id"),
-            pl.col("full_name"),
-            pl.col("status"),
-            pl.col("rockets")
-        ])
-
-    # =====================================================
-    # VALIDATION
-    # =====================================================
-    def _check_required_columns(
-        self,
-        df: pl.DataFrame,
-        required: list,
-        endpoint: str
-    ):
-
-        missing = [
-            col for col in required
-            if col not in df.columns
-        ]
-
-        if missing:
-            logger.error(
-                "Colunas obrigatórias ausentes",
-                endpoint=endpoint,
-                missing=missing
-            )
-            raise ValueError(
-                f"Colunas ausentes em {endpoint}: {missing}"
-            )
