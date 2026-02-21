@@ -13,11 +13,13 @@ from src.config.schema_registry import SCHEMA_REGISTRY
 logger = structlog.get_logger()
 
 class PostgresLoader:
+    """Responsável pela persistência nas camadas Bronze e Silver com validação de contrato."""
+
     def __init__(self):
-        """Inicializa a engine do SQLAlchemy 2.0."""
+        """Inicializa a engine com configurações de pool otimizadas para o Docker."""
         self.engine = create_engine(
             settings.DATABASE_URL,
-            pool_pre_ping=True,
+            pool_pre_ping=True,  # Verifica se a conexão está viva antes de usar
             pool_size=10,
             max_overflow=20,
             future=True,
@@ -25,20 +27,18 @@ class PostgresLoader:
 
     def validate_and_align_schema(self, entity: str):
         """
-        Verifica a integridade entre o SCHEMA_REGISTRY e o Banco de Dados.
-        Deve ser chamado ANTES do processamento da task.
+        Audita se o banco de dados possui as colunas definidas no SCHEMA_REGISTRY.
+        Aborta o pipeline em caso de divergência (Data Drift).
         """
         schema = SCHEMA_REGISTRY.get(entity)
         if not schema:
-            logger.error("Entidade não mapeada para validação", entity=entity)
-            return
+            raise ValueError(f"Entidade '{entity}' não encontrada no Registry.")
 
-        # Busca colunas reais do banco de dados (Information Schema)
-        # Filtramos por table_name para evitar colisões entre schemas
         inspect_query = text("""
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = :table
+            AND table_schema = 'public'
         """)
 
         try:
@@ -48,54 +48,53 @@ class PostgresLoader:
                 ]
 
             if not existing_cols:
-                logger.warning("Tabela não encontrada no banco. O Loader tentará criá-la via DDL ou falhará no insert.", table=schema.silver_table)
+                logger.warning("Tabela não detectada; o loader prosseguirá assumindo criação via DDL inicial.", 
+                               table=schema.silver_table)
                 return
 
-            # Detecta colunas que o código espera mas o banco não tem
             missing_in_db = [c for c in schema.columns if c not in existing_cols]
-            
+
             if missing_in_db:
-                logger.error(
-                    "DIVERGÊNCIA DE SCHEMA DETECTADA", 
-                    entity=entity, 
-                    table=schema.silver_table,
-                    missing_columns=missing_in_db
-                )
-                # Lançar erro impede que o pipeline tente um insert que vai falhar
-                raise ValueError(f"O Banco de Dados está desatualizado para a entidade {entity}. Colunas faltando: {missing_in_db}")
-                
+                logger.error("DIVERGÊNCIA DE SCHEMA DETECTADA", 
+                             entity=entity, missing_columns=missing_in_db)
+                raise ValueError(f"O banco de dados está desatualizado. Colunas ausentes: {missing_in_db}")
+
         except SQLAlchemyError as e:
-            logger.error("Falha técnica ao validar schema no banco", error=str(e))
+            logger.error("Falha técnica ao inspecionar o banco", error=str(e))
             raise
 
     def get_last_ingested(self, table_name: str, column: str = "date_utc") -> datetime:
-        """Busca o valor máximo de uma coluna para carga incremental."""
+        """Busca a marca d'água para carga incremental."""
         query = text(f"SELECT MAX({column}) FROM {table_name}")
-        
+
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(query).scalar()
                 if result:
-                    return result if hasattr(result, "tzinfo") and result.tzinfo else result.replace(tzinfo=timezone.utc)
+                    # Garante que o retorno seja um datetime UTC ciente (aware)
+                    if not hasattr(result, "tzinfo") or result.tzinfo is None:
+                        return result.replace(tzinfo=timezone.utc)
+                    return result
                 return datetime(2000, 1, 1, tzinfo=timezone.utc)
         except Exception as e:
-            logger.warning("Falha ao buscar last_ingested, iniciando do padrão", table=table_name, error=str(e))
+            logger.warning("Falha ao buscar marca d'água, utilizando data padrão (2000-01-01)", 
+                           table=table_name, error=str(e))
             return datetime(2000, 1, 1, tzinfo=timezone.utc)
 
     def load_bronze(self, data: List[Dict[str, Any]], entity: str, source: str) -> int:
-        """Carga direta de JSON bruto na camada Bronze."""
+        """Persistência do dado bruto em JSONB para linhagem e auditoria."""
         if not data:
             return 0
 
         schema = SCHEMA_REGISTRY.get(entity)
-        if not schema:
-            raise ValueError(f"Entidade '{entity}' não registrada no SCHEMA_REGISTRY")
-
+        
+        # Preparação do lote
+        ingested_at = datetime.now(timezone.utc)
         rows = [
             {
                 "source": source,
                 "raw_data": json.dumps(row, default=str),
-                "ingested_at": datetime.now(timezone.utc)
+                "ingested_at": ingested_at
             }
             for row in data
         ]
@@ -110,39 +109,52 @@ class PostgresLoader:
                 conn.execute(query, rows)
             return len(rows)
         except SQLAlchemyError as e:
-            logger.error("Falha na carga Bronze", entity=entity, error=str(e))
+            logger.error("Falha catastrófica na carga Bronze", entity=entity, error=str(e))
             raise
 
     def upsert_silver(self, df: pl.DataFrame, entity: str) -> int:
-        """Executa Upsert dinâmico baseado no contrato do SCHEMA_REGISTRY."""
+        """Executa a sincronização (Upsert) baseada na PK definida no contrato."""
         if df.is_empty():
             return 0
 
         schema = SCHEMA_REGISTRY.get(entity)
-        
-        # Tratamento de tipos complexos para JSON
-        complex_cols = [c for c in df.columns if df[c].dtype in (pl.List, pl.Struct, pl.Object)]
-        if complex_cols:
-            df = df.with_columns([
-                pl.col(c).map_elements(lambda x: json.dumps(x, default=str) if x is not None else None, return_dtype=pl.Utf8)
-                for c in complex_cols
-            ])
 
+        # Otimização Polars: Converte colunas complexas (Listas/Objetos) para String 
+        # nativamente antes de converter para dicionário Python.
+        complex_dtypes = [pl.List, pl.Struct, pl.Object]
+        cols_to_cast = [c for c in df.columns if any(isinstance(df[c].dtype, t) for t in complex_dtypes)]
+        
+        if cols_to_cast:
+            df = df.with_columns([pl.col(c).cast(pl.Utf8) for c in cols_to_cast])
+
+        # Alinhamento de colunas: garante que o insert só use o que está no Registry
         target_cols = [c for c in schema.columns if c in df.columns]
         records = df.select(target_cols).to_dicts()
 
         insert_cols = ", ".join(target_cols)
         insert_params = ", ".join([f":{c}" for c in target_cols])
+        
+        # Colunas que serão atualizadas em caso de conflito (todas menos a PK)
         update_cols = [c for c in target_cols if c != schema.pk]
         
-        conflict_action = f"DO UPDATE SET {', '.join([f'{c}=EXCLUDED.{c}' for c in update_cols])}" if update_cols else "DO NOTHING"
+        if not update_cols:
+            conflict_action = "DO NOTHING"
+        else:
+            update_stmt = ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
+            conflict_action = f"DO UPDATE SET {update_stmt}"
 
-        query = text(f"INSERT INTO {schema.silver_table} ({insert_cols}) VALUES ({insert_params}) ON CONFLICT ({schema.pk}) {conflict_action}")
+        query = text(f"""
+            INSERT INTO {schema.silver_table} ({insert_cols}) 
+            VALUES ({insert_params}) 
+            ON CONFLICT ({schema.pk}) {conflict_action}
+        """)
 
         try:
             with self.engine.begin() as conn:
                 conn.execute(query, records)
+            
+            logger.info("Carga Silver concluída", entity=entity, rows=len(records))
             return len(records)
         except SQLAlchemyError as e:
-            logger.error("Erro no Upsert Silver", entity=entity, error=str(e))
+            logger.error("Falha no Upsert Silver", entity=entity, error=str(e))
             raise
