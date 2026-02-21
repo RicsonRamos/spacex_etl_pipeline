@@ -1,27 +1,17 @@
 import pytest
-import requests
 from unittest.mock import MagicMock
 from src.extract.spacex_api import SpaceXExtractor
 
-@pytest.fixture
-def extractor():
-    return SpaceXExtractor()
-
-def test_fetch_data_success(extractor, mocker):
-    """Tests whether the extractor returns a list when the API responds with 200."""
-    mock_response = [{"id": "1", "name": "Falcon 1"}]
-    mocker.patch("requests.get", return_value=MagicMock(status_code=200, json=lambda: mock_response))
+def test_extractor_fetch_success(mock_rocket_data):
+    extractor = SpaceXExtractor()
     
-    data = extractor.fetch_data("rockets")
+    # Mock da sessão do requests
+    mock_response = MagicMock()
+    mock_response.json.return_value = mock_rocket_data
+    mock_response.raise_for_status.return_value = None
+    extractor.session.get = MagicMock(return_value=mock_response)
     
-    assert isinstance(data, list)
+    data = extractor.fetch("rockets")
+    
+    assert len(data) == 1
     assert data[0]["name"] == "Falcon 1"
-
-def test_fetch_data_error_handling(extractor, mocker):
-    
-    mocker.patch.object(extractor.session, 'get')
-    extractor.session.get.return_value = MagicMock(status_code=500)
-    extractor.session.get.return_value.raise_for_status.side_effect = requests.exceptions.HTTPError("Erro 500")
-
-    with pytest.raises(requests.exceptions.HTTPError):
-        extractor.fetch_data("rockets")

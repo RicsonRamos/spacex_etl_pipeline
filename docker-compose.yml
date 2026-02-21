@@ -1,40 +1,46 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:16-alpine
     container_name: spacex_postgres
     restart: always
-    env_file: .env # All credentials (USER, PASS, DB) come from this file
+    env_file: .env
     networks:
-      - backend_network
+      - backend
     healthcheck:
+      # Corrigida a sintaxe de escape para variáveis de ambiente no shell do Docker
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s # 5s is too aggressive for some environments
+      interval: 10s
       timeout: 5s
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      # MAPEAMENTO VITAL: O arquivo local init.sql deve estar na mesma pasta deste compose
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   etl_app:
     build: .
     container_name: spacex_pipeline
-    restart: always
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy # O app só inicia quando o DB estiver pronto e tabelas criadas
     env_file: .env
     environment:
-      - PYTHONPATH=/app
-      - POSTGRES_HOST=db # Internal hostname within Docker network
+      - POSTGRES_HOST=db
     networks:
-      - frontend_network
-      - backend_network
+      - backend
+      - internet
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
 networks:
-  frontend_network: # Internet access (SpaceX API + Prefect Cloud)
-  backend_network:  # Isolated (ETL <-> Postgres communication)
-    #internal: true
+  backend:
+    internal: true # Segurança: O DB não é exposto para a internet
+  internet:
+    driver: bridge # Necessário para o app buscar dados na API da SpaceX
 
 volumes:
-  postgres_data:
+  postgres_data: # Persistência de dados

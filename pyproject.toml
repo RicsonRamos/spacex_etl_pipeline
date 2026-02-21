@@ -1,45 +1,23 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "spacex-etl-pipeline"
-version = "0.1.0"
-description = "Pipeline ETL SpaceX: API -> Polars -> PostgreSQL orquestrado por Prefect"
+version = "1.0.0"
+description = "Pipeline ETL Medallion com Prefect, Polars e Postgres"
 readme = "README.md"
-requires-python = ">=3.12"
-authors = [
-    {name = "Seu Nome", email = "seu.email@exemplo.com"}
-]
+requires-python = ">=3.11"
+authors = [{ name = "Ricson Ramos" }]
 dependencies = [
-    "requests>=2.31.0",
-    "polars[rtcompat]>=0.20.0",
+    "prefect>=3.0.0",
+    "polars[rtcompat]>=1.0.0",
     "sqlalchemy>=2.0.0",
-    "psycopg2-binary>=2.9.0",
-    "pydantic>=2.6.0",
-    "pydantic-settings>=2.1.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic-settings>=2.2.0",
     "structlog>=24.1.0",
-    "prefect>=2.16.0",
-    "python-dotenv>=1.0.0",
-    "pytest-mock==3.14.0"
+    "requests>=2.31.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0",
-    "ruff>=0.3.0",
-    "ipykernel>=6.29.0", # Para rodar testes rápidos no VS Code
-]
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+[tool.uv]
+managed = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
-select = ["E", "F", "I"] # Erros, Falhas e Importações
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
+select = ["E", "F", "I"]
