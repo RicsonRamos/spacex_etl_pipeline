@@ -1,66 +1,92 @@
-# SpaceX ETL Pipeline
 
-![Python](https://img.shields.io/badge/python-3.11-blue)
-![Prefect](https://img.shields.io/badge/prefect-3.6.17-orange)
-![Postgres](https://img.shields.io/badge/postgres-16-blue)
-![Dockerized](https://img.shields.io/badge/docker-ready-brightgreen)
+# 🚀 SpaceX Medallion ETL Pipeline
 
-Este projeto implementa uma arquitetura Medallion (Bronze/Silver/Gold) para processamento de dados da SpaceX API, utilizando o estado da arte em Engenharia de Dados em 2026: Polars para processamento, Prefect 3.0 para orquestração e dbt para modelagem analítica.
-🛠 Stack Técnica & Escolhas Arquiteturais
-| Tecnologia | Escolha | Justificativa Técnica |
-|---|---|---|
-| Linguagem | Python 3.12+ | Aproveitamento de Type Hinting avançado e melhor performance do interpretador. |
-| Engine | Polars | Superior ao Pandas em uso de memória (Zero-copy) e performance multi-threaded para transformações Silver. |
-| Orquestrador | Prefect 3.0 | Observabilidade nativa, retentativas automáticas e desacoplamento total da infraestrutura. |
-| Modelagem | dbt (Data Build Tool) | Garantia de linhagem de dados, testes automatizados de schema e documentação SQL-based. |
-| Interface DB | SQLAlchemy 2.0 | Uso de mapeamento moderno e drivers assíncronos (psycopg3) para maior vazão de I/O. |
-| Gestor de Pack | uv | Instalação de dependências até 10x mais rápida que o pip, garantindo CI/CD ágil. |
-🏗 Arquitetura de Dados (Medallion)
- * Bronze (Raw): Ingestão via SpaceXExtractor. O dado é salvo em formato JSONB no Postgres para auditoria completa e re-processabilidade.
- * Silver (Cleaned): O SpaceXTransformer utiliza Polars para tipagem rigorosa, tratamento de nulos e normalização. O PostgresLoader realiza operações de Upsert (Merge) baseado em chaves primárias.
- * Gold (Curated): Modelos dbt transformam os dados em tabelas de fatos (fct_launches) e dimensões (dim_rockets), otimizadas para BI e Analytics.
-📈 Métricas de Engenharia & KPIs de Negócio
-Para garantir a saúde do pipeline e o valor para o negócio, monitoramos:
-Métricas de Qualidade de Dados (Engenharia)
- * Freshness (SLA): Tempo entre o lançamento na API e a disponibilidade na camada Gold (Target: < 1 hora).
- * Data Completeness: % de registros na Gold em relação à Bronze (Target: 100%).
- * Schema Drift: Número de falhas de validação Pydantic no SpaceXExtractor.
-KPIs de Negócio (Analytics)
- * Success Rate by Rocket: Taxa de sucesso por tipo de foguete (Dimensão vs Fato).
- * Cost Efficiency: Custo médio por kg colocado em órbita (Calculado na camada Gold).
- * Launch Frequency: Volume de lançamentos mensais para análise de capacidade da frota.
-🚀 Como Executar
-Pré-requisitos
- * Docker & Docker Compose
- * Prefect Cloud API Key (Opcional para execução local)
-Instalação e Execução
- * Clone o repositório e configure o ambiente:
+[![CI/CD Pipeline](https://github.com/seu-usuario/spacex-etl/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/seu-usuario/spacex-etl/actions)
+[![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+
+Pipeline de dados de nível empresarial estruturado sob a arquitetura **Medallion**, projetado para extrair, transformar e carregar dados da API da SpaceX com foco em performance, tipagem rigorosa e observabilidade.
+
+
+
+## 🏗️ Arquitetura e Decisões Técnicas
+
+| Componente | Tecnologia | Justificativa Analítica |
+| :--- | :--- | :--- |
+| **Engine de Dados** | **Polars** | Processamento multi-threaded em Rust; superior ao Pandas em eficiência de memória e velocidade. |
+| **Orquestração** | **Prefect 3.0** | Gerenciamento de estado, retentativas e monitoramento em tempo real (Observabilidade). |
+| **Modelagem** | **dbt (Postgres)** | Transformações SQL modulares com testes de integridade e linhagem automática. |
+| **Validação** | **Pydantic V2** | Garantia de contrato de dados (Data Contracts) na entrada da API. |
+| **Infraestrutura** | **Docker** | Isolamento completo e reprodutibilidade via multi-stage builds. |
+
+---
+
+## 📊 Estrutura de Camadas (Medallion)
+
+### 1. Bronze (Raw)
+- **Origem:** REST API SpaceX.
+- **Processo:** Extração via `SpaceXExtractor` com validação de schema.
+- **Armazenamento:** Tabelas Postgres com coluna `raw_data` (JSONB) para garantir a re-processabilidade.
+
+### 2. Silver (Cleansed)
+- **Processo:** Limpeza, normalização e deduplicação via `SpaceXTransformer` (Polars).
+- **Lógica de Carga:** Operações de **Upsert** no `PostgresLoader` para garantir idempotência.
+
+### 3. Gold (Curated)
+- **Processo:** Modelagem analítica via **dbt**.
+- **Resultado:** Tabelas `fct_launches` e `dim_rockets` prontas para consumo em BI (PowerBI/Metabase).
+
+
+
+---
+
+## 📈 KPIs e Métricas de Sucesso
+
+### Engenharia (Data Reliability)
+- **Pipeline Latency:** Tempo total de execução do Flow (Target: < 5 min).
+- **Data Freshness:** Idade do dado mais recente na Gold em relação ao tempo real.
+- **Build Speed:** Tempo de build Docker otimizado via `uv` e cache.
+
+### Negócio (Insights)
+- **Launch Success Rate:** Taxa de sucesso por modelo de foguete.
+- **Cost Analysis:** Custo acumulado por missão e eficiência financeira da frota.
+
+---
+
+## 🚀 Como Rodar
+
+### Configuração de Ambiente
+1. Clone o repositório:
+   ```bash
+   git clone [https://github.com/seu-usuario/spacex-etl.git](https://github.com/seu-usuario/spacex-etl.git)
+
+ * Configure as variáveis de ambiente:
    cp .env.example .env
-# Edite o .env com suas credenciais
+# Adicione suas credenciais do Postgres e Prefect API
 
- * Suba o ecossistema (Banco + ETL + Dashboard):
-   docker-compose up --build
+Execução via Docker
+O projeto está totalmente conteinerizado. Para iniciar o banco de dados e o pipeline:
+docker-compose up --build
 
- * Execução Manual via CLI:
-   # Carga completa
+Execução Manual
+# Instalar dependências rápidas via uv
+uv pip install -e .
+
+# Rodar ETL Completo
 python main.py
-# Carga incremental (apenas novos registros)
+
+# Rodar com Carga Incremental
 python main.py --incremental
 
-🧪 Estratégia de Testes
- * Unitários (pytest): Validam a lógica de transformação do Polars isoladamente.
- * Integração (testcontainers): Sobe um banco efêmero para validar o Upsert do Loader.
- * Schema Tests (dbt): Validam unicidade e integridade referencial na camada Gold.
-<!-- end list -->
-# Executar suíte de testes completa
-pytest tests/ --cov=src -v
+🧪 Qualidade e Testes
+A suíte de testes utiliza pytest e testcontainers para garantir que o código funcione em ambientes reais antes do deploy.
+# Rodar todos os testes com cobertura
+pytest --cov=src tests/
 
-🛡 Segurança e Boas Práticas
- * Zero Hardcode: Todas as credenciais são injetadas via variáveis de ambiente validadas pelo Pydantic Settings.
- * CI/CD: Pipeline no GitHub Actions que executa Linter (Ruff), Testes e Build da imagem Docker em cada Push.
- * Isolamento de Redes: O banco de dados Postgres não expõe portas para a internet, sendo acessível apenas pelo serviço de ETL.
-Analista Responsável: Ricson Ramos
-Status do Projeto: Produção / Estável
-Diagnóstico de Impacto do README
-Este documento posiciona o seu projeto como uma solução de missão crítica. Ele explica o porquê de cada ferramenta, o que é essencial para avaliações técnicas de alto nível.
-Agora que a documentação está pronta, você gostaria que eu ajudasse a configurar o agendamento (Schedule) no Prefect para que esse pipeline rode automaticamente todos os dias às 00:00?
+ * Unit Tests: Validação de lógica de transformação.
+ * Integration Tests: Validação de conexão e Upsert no Postgres.
+ * Schema Tests: dbt tests para unicidade e integridade referencial.
+Desenvolvido por: [Seu Nome/Ricson Ramos]
+Status: Produção / Estável ✅
+
+---
