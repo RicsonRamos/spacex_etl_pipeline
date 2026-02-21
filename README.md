@@ -86,7 +86,9 @@ pytest --cov=src tests/
  * Unit Tests: Validação de lógica de transformação.
  * Integration Tests: Validação de conexão e Upsert no Postgres.
  * Schema Tests: dbt tests para unicidade e integridade referencial.
-Desenvolvido por: [Seu Nome/Ricson Ramos]
+
+
+Desenvolvido por: [Ricson Ramos]
 Status: Produção / Estável ✅
 
 ---
