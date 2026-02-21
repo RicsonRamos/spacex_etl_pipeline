@@ -5,12 +5,14 @@ from prefect import task
 from typing import List, Dict, Any
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+
 from src.config.settings import settings
 
 logger = structlog.get_logger()
 
 
 class PostgresLoader:
+
     def __init__(self):
         self.engine = create_engine(
             settings.DATABASE_URL,
@@ -20,140 +22,168 @@ class PostgresLoader:
             future=True,
         )
 
-   
-    # BRONZE
-   
+    # =====================================================
+    # BRONZE — RAW ONLY (JSON)
+    # =====================================================
 
-    def load_bronze(self, data: List[Dict[str, Any]], table_name: str) -> int:
+    def load_bronze(
+        self,
+        data: List[Dict[str, Any]],
+        table_name: str,
+        source: str,
+    ) -> int:
+
         if not data:
-            logger.warning("Bronze load skipped (empty dataset)", table=table_name)
+            logger.warning("Bronze skipped (empty)", table=table_name)
             return 0
 
-        formatted_data = [
-            {"raw_data": json.dumps(item, default=str)}
-            for item in data
+        rows = [
+            {
+                "source": source,
+                "raw_data": json.dumps(row, default=str),
+            }
+            for row in data
         ]
+
+        query = text(f"""
+            INSERT INTO {table_name} (source, raw_data)
+            VALUES (:source, :raw_data)
+        """)
 
         try:
             with self.engine.begin() as conn:
-                conn.execute(
-                    text(f"INSERT INTO {table_name} (raw_data) VALUES (:raw_data)"),
-                    formatted_data,
-                )
+                conn.execute(query, rows)
 
-            logger.info("Bronze load successful", table=table_name, rows=len(data))
-            return len(data)
+            logger.info(
+                "Bronze load OK",
+                table=table_name,
+                rows=len(rows),
+            )
+
+            return len(rows)
 
         except SQLAlchemyError as e:
-            logger.error("Bronze load failed", table=table_name, error=str(e))
+            logger.error("Bronze failed", table=table_name, error=str(e))
             raise
 
+
+    # =====================================================
+    # VALIDATION (SILVER INPUT)
+    # =====================================================
+
+    @staticmethod
     @task
     def validate_launches(data: list[dict]):
-        for row in data:
-            if row.get("launch_id") is None:
-                raise ValueError(f"Missing launch_id in row: {row}")
-            if row.get("date_utc") is None:
-                raise ValueError(f"Missing date_utc in row: {row}")
-        return data
-    
-    # SILVER
-   
 
-    def upsert_silver(self, df: pl.DataFrame, table_name: str, pk: str) -> int:
+        for row in data:
+
+            if not row.get("id"):
+                raise ValueError(f"Missing id: {row}")
+
+            if not row.get("date_utc"):
+                raise ValueError(f"Missing date_utc: {row}")
+
+        return data
+
+
+    # =====================================================
+    # SILVER — UPSERT ESTRUTURADO
+    # =====================================================
+
+    def upsert_silver(
+        self,
+        df: pl.DataFrame,
+        table_name: str,
+        pk: str,
+    ) -> int:
+
         if df.is_empty():
-            logger.warning("Silver upsert skipped (empty DataFrame)", table=table_name)
+            logger.warning("Silver skipped (empty)", table=table_name)
             return 0
 
-       
-        # Serialização segura
-       
 
-        def safe_json(value):
-            if value is None:
+        # -----------------------------
+        # Serialização segura
+        # -----------------------------
+
+        def safe_json(v):
+
+            if v is None:
                 return None
 
-            # Series -> list
-            if isinstance(value, pl.Series):
-                return json.dumps(value.to_list(), default=str)
+            if isinstance(v, (list, dict)):
+                return json.dumps(v, default=str)
 
-            # Struct vira dict
-            if isinstance(value, dict):
-                return json.dumps(value, default=str)
+            if isinstance(v, pl.Series):
+                return json.dumps(v.to_list(), default=str)
 
-            # Lista
-            if isinstance(value, list):
-                return json.dumps(value, default=str)
+            return v
 
-            # Fallback seguro
-            return json.dumps(value, default=str)
 
-        cols_to_serialize = [
-            col
-            for col in df.columns
-            if df[col].dtype in (pl.List, pl.Struct, pl.Object)
+        complex_cols = [
+            c for c in df.columns
+            if df[c].dtype in (pl.List, pl.Struct, pl.Object)
         ]
 
-        if cols_to_serialize:
-            logger.info(
-                "Serializing complex columns",
-                table=table_name,
-                columns=cols_to_serialize,
-            )
+        if complex_cols:
 
-            df = df.with_columns(
-                [
-                    pl.col(col)
-                    .map_elements(safe_json, return_dtype=pl.Utf8)
-                    .alias(col)
-                    for col in cols_to_serialize
-                ]
-            )
+            df = df.with_columns([
+                pl.col(c)
+                .map_elements(safe_json, return_dtype=pl.Utf8)
+                .alias(c)
+                for c in complex_cols
+            ])
 
-       
-        # Garantir tipos Python puros
-       
 
         records = df.to_dicts()
 
         if not records:
             return 0
 
-       
-        # Construção do UPSERT
-       
+
+        # -----------------------------
+        # Validação PK
+        # -----------------------------
+
+        if pk not in df.columns:
+            raise ValueError(f"PK '{pk}' not found in {table_name}")
+
+
+        # -----------------------------
+        # SQL UPSERT
+        # -----------------------------
 
         cols = df.columns
 
-        if pk not in cols:
-            raise ValueError(f"Primary key '{pk}' not found in DataFrame")
+        insert_cols = ", ".join(cols)
+        insert_vals = ", ".join([f":{c}" for c in cols])
 
         update_cols = [c for c in cols if c != pk]
 
         set_clause = ", ".join(
-            [f"{c} = EXCLUDED.{c}" for c in update_cols]
+            f"{c}=EXCLUDED.{c}"
+            for c in update_cols
         )
 
-        insert_columns = ", ".join(cols)
-        insert_values = ", ".join([f":{c}" for c in cols])
-
         query = text(f"""
-            INSERT INTO {table_name} ({insert_columns})
-            VALUES ({insert_values})
+            INSERT INTO {table_name} ({insert_cols})
+            VALUES ({insert_vals})
             ON CONFLICT ({pk})
             DO UPDATE SET {set_clause}
         """)
 
-       
+
+        # -----------------------------
         # Execução
-       
+        # -----------------------------
 
         try:
+
             with self.engine.begin() as conn:
                 conn.execute(query, records)
 
             logger.info(
-                "Silver upsert successful",
+                "Silver upsert OK",
                 table=table_name,
                 rows=len(records),
             )
@@ -161,26 +191,47 @@ class PostgresLoader:
             return len(records)
 
         except SQLAlchemyError as e:
+
             logger.error(
-                "Silver upsert failed",
+                "Silver failed",
                 table=table_name,
                 error=str(e),
             )
+
             raise
 
-   
-    # GOLD
-   
 
-    def refresh_gold_view(self, view_name: str, definition: str):
+    # =====================================================
+    # GOLD — VIEWS
+    # =====================================================
+
+    def refresh_gold_view(
+        self,
+        view_name: str,
+        definition: str,
+    ):
 
         try:
-            with self.engine.begin() as conn:
-                conn.execute(text(f"DROP VIEW IF EXISTS {view_name}"))
-                conn.execute(text(f"CREATE VIEW {view_name} AS {definition}"))
 
-            logger.info("Gold layer refreshed", view=view_name)
+            with self.engine.begin() as conn:
+
+                conn.execute(
+                    text(f"DROP VIEW IF EXISTS {view_name} CASCADE")
+                )
+
+                conn.execute(
+                    text(f"CREATE VIEW {view_name} AS {definition}")
+                )
+
+
+            logger.info("Gold refreshed", view=view_name)
 
         except SQLAlchemyError as e:
-            logger.error("Gold refresh failed", view=view_name, error=str(e))
+
+            logger.error(
+                "Gold failed",
+                view=view_name,
+                error=str(e),
+            )
+
             raise

@@ -35,11 +35,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       PREFECT_LOGGING_LEVEL: INFO
+      DBT_PROFILES_DIR: /app/dbt
     networks:
       - backend
       - internet
     volumes:
       - etl_logs:/app/logs
+      - ./dbt:/app/dbt
     restart: on-failure
     logging:
       driver: "json-file"

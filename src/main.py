@@ -1,5 +1,5 @@
 import structlog
-from src.flows.etl_flow import spacex_etl_pipeline
+from src.flows.etl_flow import spacex_pipeline
 
 logger = structlog.get_logger()
 
@@ -14,7 +14,7 @@ def main(incremental: bool = False):
 
     try:
         # Chama o pipeline orquestrado pelo Prefect
-        spacex_etl_pipeline()
+        spacex_pipeline()
         logger.info("Pipeline finalizado com sucesso 🚀")
 
     except Exception as e:

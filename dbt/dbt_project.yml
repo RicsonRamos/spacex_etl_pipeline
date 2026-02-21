@@ -1,0 +1,33 @@
+name: spacex_dbt
+version: "1.0"
+config-version: 2
+
+profile: spacex_profile
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  spacex_dbt:
+
+    # Staging
+    staging:
+      +schema: analytics_staging
+      +materialized: view
+
+    # Facts / Marts
+    marts:
+      +schema: analytics_marts
+      +materialized: table
+
+    # Gold
+    gold:
+      +schema: analytics_gold
+      +materialized: table

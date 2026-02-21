@@ -24,6 +24,7 @@ COPY pyproject.toml .
 
 # Instala dependências via uv
 RUN uv pip install --system .
+RUN pip install "dbt-postgres~=1.7"
 
 # Copia todo o código da aplicação
 COPY . .
