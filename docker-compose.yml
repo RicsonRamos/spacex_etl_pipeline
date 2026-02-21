@@ -7,58 +7,50 @@ services:
     restart: always
     env_file: .env
     networks:
-      - backend
+      - private_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      # Corrigido escape do $ para variáveis de ambiente do shell do postgres
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     logging:
       driver: "json-file"
       options:
-        max-size: "20m"
-        max-file: "5"
+        max-size: "10m"
 
   etl_app:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: spacex_pipeline
     depends_on:
       db:
         condition: service_healthy
     env_file: .env
+    # Sobrescrevemos o HOST para o nome do serviço no docker
     environment:
-      POSTGRES_HOST: db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      PREFECT_LOGGING_LEVEL: INFO
-      DBT_PROFILES_DIR: /app/dbt
+      - POSTGRES_HOST=db
+      - DBT_PROFILES_DIR=/app/dbt
     networks:
-      - backend
-      - internet
+      - private_network
     volumes:
       - etl_logs:/app/logs
-      - ./dbt:/app/dbt
     restart: on-failure
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "5"
+    # Comando corrigido para rodar como módulo e respeitar o loop de 1h
     command: >
       sh -c "
       while true; do
-        python src/main.py --incremental &&
+        python -m src.flows.etl_flow;
+        echo 'Ciclo finalizado. Aguardando 1 hora...';
         sleep 3600;
       done"
 
 networks:
-  backend:
-    internal: true
-  internet:
+  private_network:
     driver: bridge
 
 volumes:
