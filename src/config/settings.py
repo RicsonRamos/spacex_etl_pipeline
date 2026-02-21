@@ -1,13 +1,14 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, computed_field
+from typing import Optional
 
 class Settings(BaseSettings):
-    """Gestão de configuração via Pydantic V2."""
-    
+    """Gestão de configuração centralizada."""
+
     # API SpaceX
     SPACEX_API_URL: str = "https://api.spacexdata.com/v4"
     API_RETRIES: int = Field(default=3, ge=1)
-    API_TIMEOUT: int = Field(default=15, ge=1)
+    API_TIMEOUT: int = Field(default=30, ge=1) # Aumentado para 30s por segurança
 
     # Database
     POSTGRES_USER: str
@@ -16,12 +17,16 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str
 
+    # Notificações (Utilizado pelo Flow/Monitoring)
+    SLACK_WEBHOOK_URL: Optional[str] = None
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
-        """URL de conexão para SQLAlchemy."""
+        """URL de conexão formatada para SQLAlchemy 2.0."""
+        # Adicionado o driver +psycopg2 para garantir compatibilidade
         return (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+            f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
             f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
