@@ -1,12 +1,17 @@
 import structlog
 import polars as pl
 import json
-from prefect import task
+
 from typing import List, Dict, Any
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from prefect import task
+
 from src.config.settings import settings
+from src.config.schema_registry import TABLE_REGISTRY
+
 
 logger = structlog.get_logger()
 
@@ -14,6 +19,7 @@ logger = structlog.get_logger()
 class PostgresLoader:
 
     def __init__(self):
+
         self.engine = create_engine(
             settings.DATABASE_URL,
             pool_pre_ping=True,
@@ -22,20 +28,31 @@ class PostgresLoader:
             future=True,
         )
 
+
     # =====================================================
-    # BRONZE — RAW ONLY (JSON)
+    # BRONZE — RAW JSON
     # =====================================================
 
     def load_bronze(
         self,
         data: List[Dict[str, Any]],
-        table_name: str,
+        entity: str,
         source: str,
     ) -> int:
 
         if not data:
-            logger.warning("Bronze skipped (empty)", table=table_name)
+            logger.warning("Bronze skipped (empty)", entity=entity)
             return 0
+
+
+        meta = TABLE_REGISTRY.get(entity)
+
+        if not meta:
+            raise ValueError(f"Entity not registered: {entity}")
+
+
+        table = meta["bronze"]
+
 
         rows = [
             {
@@ -45,65 +62,130 @@ class PostgresLoader:
             for row in data
         ]
 
+
         query = text(f"""
-            INSERT INTO {table_name} (source, raw_data)
+            INSERT INTO {table} (source, raw_data)
             VALUES (:source, :raw_data)
         """)
 
+
         try:
+
             with self.engine.begin() as conn:
                 conn.execute(query, rows)
 
+
             logger.info(
                 "Bronze load OK",
-                table=table_name,
+                entity=entity,
+                table=table,
                 rows=len(rows),
             )
 
             return len(rows)
 
+
         except SQLAlchemyError as e:
-            logger.error("Bronze failed", table=table_name, error=str(e))
+
+            logger.error(
+                "Bronze failed",
+                entity=entity,
+                table=table,
+                error=str(e),
+            )
+
             raise
 
 
     # =====================================================
-    # VALIDATION (SILVER INPUT)
+    # GENERIC VALIDATION
     # =====================================================
 
     @staticmethod
     @task
-    def validate_launches(data: list[dict]):
+    def validate(entity: str, data: list[dict]) -> list[dict]:
+
+        meta = TABLE_REGISTRY.get(entity)
+
+        if not meta:
+            raise ValueError(f"Entity not registered: {entity}")
+
+
+        required = meta.get("required", [])
+
 
         for row in data:
 
-            if not row.get("id"):
-                raise ValueError(f"Missing id: {row}")
+            for col in required:
 
-            if not row.get("date_utc"):
-                raise ValueError(f"Missing date_utc: {row}")
+                if not row.get(col):
+                    raise ValueError(
+                        f"Missing '{col}' in {entity}: {row}"
+                    )
 
         return data
 
 
     # =====================================================
-    # SILVER — UPSERT ESTRUTURADO
+    # SILVER — CANONICAL UPSERT
     # =====================================================
 
     def upsert_silver(
         self,
         df: pl.DataFrame,
-        table_name: str,
-        pk: str,
+        entity: str,
     ) -> int:
 
         if df.is_empty():
-            logger.warning("Silver skipped (empty)", table=table_name)
+            logger.warning("Silver skipped (empty)", entity=entity)
             return 0
 
 
+        meta = TABLE_REGISTRY.get(entity)
+
+        if not meta:
+            raise ValueError(f"Entity not registered: {entity}")
+
+
+        table = meta["silver"]
+        pk = meta["pk"]
+
+        columns = list(meta["columns"].keys())
+        required = meta.get("required", [])
+
+
         # -----------------------------
-        # Serialização segura
+        # VALIDATION
+        # -----------------------------
+
+        missing_required = set(required) - set(df.columns)
+
+        if missing_required:
+            raise ValueError(
+                f"Missing required columns for {entity}: {missing_required}"
+            )
+
+
+        extra_cols = set(df.columns) - set(columns)
+
+        if extra_cols:
+
+            logger.warning(
+                "Extra columns ignored",
+                entity=entity,
+                cols=list(extra_cols),
+            )
+
+
+        df = df.select([c for c in columns if c in df.columns])
+
+
+        if pk not in df.columns:
+            raise ValueError(f"Primary key '{pk}' not found in {entity}")
+
+
+        # -----------------------------
+        # SAFE JSON SERIALIZATION
         # -----------------------------
 
         def safe_json(v):
@@ -125,11 +207,15 @@ class PostgresLoader:
             if df[c].dtype in (pl.List, pl.Struct, pl.Object)
         ]
 
+
         if complex_cols:
 
             df = df.with_columns([
                 pl.col(c)
-                .map_elements(safe_json, return_dtype=pl.Utf8)
+                .map_elements(
+                    safe_json,
+                    return_dtype=pl.Utf8
+                )
                 .alias(c)
                 for c in complex_cols
             ])
@@ -142,31 +228,28 @@ class PostgresLoader:
 
 
         # -----------------------------
-        # Validação PK
-        # -----------------------------
-
-        if pk not in df.columns:
-            raise ValueError(f"PK '{pk}' not found in {table_name}")
-
-
-        # -----------------------------
         # SQL UPSERT
         # -----------------------------
 
-        cols = df.columns
+        insert_cols = ", ".join(df.columns)
+        insert_vals = ", ".join(f":{c}" for c in df.columns)
 
-        insert_cols = ", ".join(cols)
-        insert_vals = ", ".join([f":{c}" for c in cols])
+        update_cols = [c for c in df.columns if c != pk]
 
-        update_cols = [c for c in cols if c != pk]
+        if not update_cols:
+            raise ValueError(
+                f"No updatable columns for {entity}"
+            )
+
 
         set_clause = ", ".join(
             f"{c}=EXCLUDED.{c}"
             for c in update_cols
         )
 
+
         query = text(f"""
-            INSERT INTO {table_name} ({insert_cols})
+            INSERT INTO {table} ({insert_cols})
             VALUES ({insert_vals})
             ON CONFLICT ({pk})
             DO UPDATE SET {set_clause}
@@ -174,7 +257,7 @@ class PostgresLoader:
 
 
         # -----------------------------
-        # Execução
+        # EXECUTION
         # -----------------------------
 
         try:
@@ -182,19 +265,23 @@ class PostgresLoader:
             with self.engine.begin() as conn:
                 conn.execute(query, records)
 
+
             logger.info(
                 "Silver upsert OK",
-                table=table_name,
+                entity=entity,
+                table=table,
                 rows=len(records),
             )
 
             return len(records)
 
+
         except SQLAlchemyError as e:
 
             logger.error(
                 "Silver failed",
-                table=table_name,
+                entity=entity,
+                table=table,
                 error=str(e),
             )
 
@@ -202,35 +289,59 @@ class PostgresLoader:
 
 
     # =====================================================
-    # GOLD — VIEWS
+    # GOLD — VIEW REFRESH
     # =====================================================
 
     def refresh_gold_view(
         self,
-        view_name: str,
-        definition: str,
-    ):
+        entity: str,
+    ) -> None:
+
+        meta = TABLE_REGISTRY.get(entity)
+
+        if not meta:
+            raise ValueError(f"Entity not registered: {entity}")
+
+
+        view = meta.get("gold_view")
+        definition = meta.get("gold_definition")
+
+
+        if not view or not definition:
+            raise ValueError(
+                f"Gold config missing for {entity}"
+            )
+
 
         try:
 
             with self.engine.begin() as conn:
 
                 conn.execute(
-                    text(f"DROP VIEW IF EXISTS {view_name} CASCADE")
+                    text(f"DROP VIEW IF EXISTS {view} CASCADE")
                 )
 
                 conn.execute(
-                    text(f"CREATE VIEW {view_name} AS {definition}")
+                    text(f"""
+                        CREATE VIEW {view} AS
+                        {definition}
+                    """)
                 )
 
 
-            logger.info("Gold refreshed", view=view_name)
+            logger.info(
+                "Gold refreshed",
+                entity=entity,
+                view=view,
+            )
+
 
         except SQLAlchemyError as e:
 
             logger.error(
                 "Gold failed",
-                view=view_name,
+                entity=entity,
+                view=view,
                 error=str(e),
             )
 
