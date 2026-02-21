@@ -1,33 +1,21 @@
-name: spacex_dbt
-version: "1.0"
+name: 'spacex_analytics'
+version: '1.0.0'
 config-version: 2
 
-profile: spacex_profile
+# O perfil de conexão definido no profiles.yml
+profile: 'spacex_profile'
 
 model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
 seed-paths: ["seeds"]
-snapshot-paths: ["snapshots"]
 macro-paths: ["macros"]
 
-target-path: "target"
-clean-targets:
-  - "target"
-  - "dbt_packages"
-
 models:
-  spacex_dbt:
-
-    # Staging
+  spacex_analytics:
+    # Camada Staging: Apenas limpeza e renomeação (Views)
     staging:
-      +schema: analytics_staging
       +materialized: view
-
-    # Facts / Marts
+    # Camada Marts: Dados prontos para BI (Tabelas)
     marts:
-      +schema: analytics_marts
-      +materialized: table
-
-    # Gold
-    gold:
-      +schema: analytics_gold
       +materialized: table
