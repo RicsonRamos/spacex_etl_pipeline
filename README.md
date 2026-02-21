@@ -1,9 +1,19 @@
 
 # 🚀 SpaceX Medallion ETL Pipeline
 
-[![CI/CD Pipeline](https://github.com/seu-usuario/spacex-etl/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/seu-usuario/spacex-etl/actions)
-[![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
-[![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+-[! [Python] (https://img.shields.io/badge/python-3.11 -blue)](https://www.python.org/)
+
+-[! [Prefect)(https://img.shields.io/badge/prefect-2.0 -orange)] (https://www.prefect.io/)
+
+-[! [License) (https://img.shields.io/badge/license-MIT -green)] (LICENSE)
+
++! [Python] (https://img.shields.io/badge/python-3.11 -blue)
+
++! [Prefect)(https://img.shields.io/badge/prefect-3.6.17 -orange)
+
++! [Postgres](https://img.shields.io/badge/postgres-16 -blue)
+
+6 +! [Dockerized] (https://img.shields.io/badge/docker -ready-brightgreen)
 
 Pipeline de dados de nível empresarial estruturado sob a arquitetura **Medallion**, projetado para extrair, transformar e carregar dados da API da SpaceX com foco em performance, tipagem rigorosa e observabilidade.
 
