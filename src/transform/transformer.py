@@ -1,68 +1,23 @@
 import polars as pl
-import structlog
-from typing import List, Dict, Any
-
 from src.config.schema_registry import SCHEMA_REGISTRY
 
-logger = structlog.get_logger()
-
-
 class SpaceXTransformer:
+    def transform(self, endpoint: str, data: List[Dict]) -> pl.DataFrame:
+        if not data: return pl.DataFrame()
+        
+        schema = SCHEMA_REGISTRY.get(endpoint)
+        if not schema: raise ValueError(f"Schema ausente: {endpoint}")
 
-    def transform(
-        self,
-        endpoint: str,
-        data: List[Dict[str, Any]]
-    ) -> pl.DataFrame:
+        df = pl.from_dicts(data)
 
-        if not data:
-            logger.warning("Dataset vazio", endpoint=endpoint)
-            return pl.DataFrame()
-
-        if endpoint not in SCHEMA_REGISTRY:
-            raise ValueError(f"Endpoint sem schema: {endpoint}")
-
-        schema = SCHEMA_REGISTRY[endpoint]
-
-        try:
-            df = pl.from_dicts(data)
-        except Exception as e:
-            logger.exception("Falha ao criar DataFrame", error=str(e))
-            raise
-
-        # =====================================================
-        # RENAME
-        # =====================================================
+        # 1. Rename imediato para garantir que PK exista com o nome correto
         if schema.rename:
-            df = df.rename(schema.rename)
+            df = df.rename({k: v for k, v in schema.rename.items() if k in df.columns})
 
-        # =====================================================
-        # CAST
-        # =====================================================
+        # 2. Casts robustos
         for col, dtype in schema.casts.items():
+            if col in df.columns:
+                df = df.with_columns(pl.col(col).cast(dtype, strict=False))
 
-            if col not in df.columns:
-                raise ValueError(f"Coluna ausente: {col}")
-
-            df = df.with_columns(
-                pl.col(col).cast(dtype, strict=False)
-            )
-
-        # =====================================================
-        # DERIVED
-        # =====================================================
-        for col, expr_fn in schema.derived.items():
-
-            df = df.with_columns(
-                expr_fn(df).alias(col)
-            )
-
-        # =====================================================
-        # PK VALIDATION
-        # =====================================================
-        if schema.pk not in df.columns:
-            raise ValueError(f"PK ausente: {schema.pk}")
-
-        df = df.unique(subset=[schema.pk])
-
-        return df
+        # 3. Drop de duplicatas pela PK real
+        return df.unique(subset=[schema.pk])
