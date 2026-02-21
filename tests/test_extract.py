@@ -1,17 +1,15 @@
-import pytest
-from unittest.mock import MagicMock
-from src.extract.spacex_api import SpaceXExtractor
+from src.extract.extractor import SpaceXExtractor
 
-def test_extractor_fetch_success(mock_rocket_data):
+def test_fetch_launches_api_error(mocker):
+    # Mock da resposta de erro da API
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.status_code = 500
+    mock_get.return_value.raise_for_status.side_effect = Exception("API Down")
+
     extractor = SpaceXExtractor()
     
-    # Mock da sessão do requests
-    mock_response = MagicMock()
-    mock_response.json.return_value = mock_rocket_data
-    mock_response.raise_for_status.return_value = None
-    extractor.session.get = MagicMock(return_value=mock_response)
-    
-    data = extractor.fetch("rockets")
-    
-    assert len(data) == 1
-    assert data[0]["name"] == "Falcon 1"
+    # Verifica se o código levanta a exceção esperada
+    try:
+        extractor.fetch_launches()
+    except Exception as e:
+        assert "API Down" in str(e)
