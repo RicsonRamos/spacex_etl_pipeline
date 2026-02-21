@@ -7,20 +7,33 @@ requires-python = ">=3.11"
 authors = [{ name = "Ricson Ramos" }]
 dependencies = [
     "prefect>=3.0.0",
-    "polars[rtcompat]>=1.0.0",
+    "polars[rtcompat]>=1.0.0", # rtcompat garante integração com fsspec/cloud storage
     "sqlalchemy>=2.0.0",
-    "psycopg2-binary>=2.9.9",
+    "psycopg[binary]>=3.1.0",   # Driver v3: Mais rápido e moderno que o psycopg2
     "pydantic-settings>=2.2.0",
     "structlog>=24.1.0",
     "requests>=2.31.0",
-    "pandas",
     "dbt-core>=1.7.0",
     "dbt-postgres>=1.7.0"
 ]
 
 [tool.uv]
 managed = true
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.3.0"
+]
 
 [tool.ruff]
 line-length = 88
-select = ["E", "F", "I"]
+# Regras estendidas: Erros, Falhas, Importações, Complexidade (C90), Bugbear (B)
+lint.select = ["E", "F", "I", "C90", "B"]
+lint.ignore = ["D100"] # Ignora falta de docstring no topo do módulo se desejar
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10 # Garante que suas funções não virem "monstros" lógicos
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
