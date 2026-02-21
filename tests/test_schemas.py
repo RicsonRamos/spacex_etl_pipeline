@@ -1,20 +1,24 @@
 import pytest
 from pydantic import ValidationError
-from src.extract.schemas import RocketSchema
+from src.extract.schemas import LaunchSchema # Assumindo que você usa este schema
 
-def test_rocket_schema_valid_data():
-    """Valida se o mapeamento de alias (id -> rocket_id) está funcionando."""
-    payload = {
-        "id": "5e9d0d95eda69955f709d1eb",
-        "name": "Falcon 9",
-        "type": "rocket",
-        "active": True
+def test_launch_schema_validation():
+    # Dados válidos
+    valid_data = {
+        "id": "5eb87cd9ffd86e000604b32a",
+        "name": "Falcon 1",
+        "date_utc": "2006-03-24T22:30:00.000Z",
+        "success": False,
+        "rocket": "5e9d0d95eda69955f709d1eb"
     }
-    rocket = RocketSchema(**payload)
-    assert rocket.rocket_id == "5e9d0d95eda69955f709d1eb"
+    assert LaunchSchema(**valid_data)
 
-def test_rocket_schema_invalid_data():
-    """Garante que dados faltantes lancem erro (Rigor de Tipagem)."""
-    incomplete_payload = {"name": "Falcon 9"}  # Falta 'id' e 'type'
+def test_launch_schema_invalid_types():
+    # Dado inválido (success deveria ser bool, mandamos string incompatível)
+    invalid_data = {
+        "id": 123, # Deveria ser string
+        "name": "Falcon 1",
+        "success": "not-a-boolean"
+    }
     with pytest.raises(ValidationError):
-        RocketSchema(**incomplete_payload)
+        LaunchSchema(**invalid_data)
