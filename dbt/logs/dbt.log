@@ -21163,3 +21163,773 @@ where launch_id is null
 [0m23:00:10.046992 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7ddfd2365c70>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7ddfd229dd60>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7ddfd3e3ac00>]}
 [0m23:00:10.047700 [debug] [MainThread]: Flushing usage events
 [0m23:00:10.719842 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m23:37:45.459507 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7255c8cf8320>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7255c8255ac0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7255c64024b0>]}
+
+
+============================== 23:37:45.521748 | fcdbd1eb-cfeb-4a86-885e-f818d8304644 ==============================
+[0m23:37:45.521748 [info ] [MainThread]: Running with dbt=1.11.6
+[0m23:37:45.523223 [debug] [MainThread]: running dbt with arguments {'log_format': 'default', 'introspect': 'True', 'fail_fast': 'False', 'quiet': 'False', 'version_check': 'True', 'indirect_selection': 'eager', 'empty': 'None', 'profiles_dir': '/app/dbt', 'use_experimental_parser': 'False', 'partial_parse': 'True', 'static_parser': 'True', 'debug': 'False', 'send_anonymous_usage_stats': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'log_path': '/app/dbt/logs', 'printer_width': '80', 'target_path': 'None', 'warn_error': 'None', 'use_colors': 'True', 'cache_selected_only': 'False', 'write_json': 'True', 'no_print': 'None', 'log_cache_events': 'False', 'invocation_command': 'dbt deps'}
+[0m23:37:45.831866 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'project_id', 'label': 'fcdbd1eb-cfeb-4a86-885e-f818d8304644', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7255c86f4620>]}
+[0m23:37:45.931458 [info ] [MainThread]: Warning: No packages were found in packages.yml
+[0m23:37:45.943563 [info ] [MainThread]: Warning: No packages were found in packages.yml
+[0m23:37:45.946256 [debug] [MainThread]: Resource report: {"command_name": "deps", "command_success": true, "command_wall_clock_time": 0.730304, "process_in_blocks": "1384", "process_kernel_time": 0.958612, "process_mem_max_rss": "124960", "process_out_blocks": "0", "process_user_time": 6.813458}
+[0m23:37:45.947518 [debug] [MainThread]: Command `dbt deps` succeeded at 23:37:45.947312 after 0.73 seconds
+[0m23:37:45.948322 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7255c8255ac0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7255c86f4620>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7255c5881580>]}
+[0m23:37:45.949334 [debug] [MainThread]: Flushing usage events
+[0m23:37:46.638385 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m23:37:54.120987 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7bcf11039dc0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7bcf0e6eb3b0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7bcf0e6eb620>]}
+
+
+============================== 23:37:54.197260 | ab4f83e7-6d5c-420b-902b-b105466c9f96 ==============================
+[0m23:37:54.197260 [info ] [MainThread]: Running with dbt=1.11.6
+[0m23:37:54.198479 [debug] [MainThread]: running dbt with arguments {'write_json': 'True', 'static_parser': 'True', 'invocation_command': 'dbt debug', 'profiles_dir': '/app/dbt', 'warn_error': 'None', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'quiet': 'False', 'version_check': 'True', 'target_path': 'None', 'printer_width': '80', 'indirect_selection': 'eager', 'no_print': 'None', 'log_cache_events': 'False', 'fail_fast': 'False', 'use_experimental_parser': 'False', 'log_path': '/app/dbt/logs', 'use_colors': 'True', 'log_format': 'default', 'cache_selected_only': 'False', 'introspect': 'True', 'debug': 'False', 'empty': 'None', 'send_anonymous_usage_stats': 'True', 'partial_parse': 'True'}
+[0m23:37:54.260600 [info ] [MainThread]: dbt version: 1.11.6
+[0m23:37:54.261679 [info ] [MainThread]: python version: 3.12.12
+[0m23:37:54.262459 [info ] [MainThread]: python path: /usr/local/bin/python
+[0m23:37:54.263259 [info ] [MainThread]: os info: Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41
+[0m23:37:54.406421 [info ] [MainThread]: Using profiles dir at /app/dbt
+[0m23:37:54.407484 [info ] [MainThread]: Using profiles.yml file at /app/dbt/profiles.yml
+[0m23:37:54.408415 [info ] [MainThread]: Using dbt_project.yml file at /app/dbt/dbt_project.yml
+[0m23:37:54.409662 [info ] [MainThread]: adapter type: postgres
+[0m23:37:54.412946 [info ] [MainThread]: adapter version: 1.10.0
+[0m23:37:54.632091 [info ] [MainThread]: Configuration:
+[0m23:37:54.633268 [info ] [MainThread]:   profiles.yml file [[32mOK found and valid[0m]
+[0m23:37:54.634112 [info ] [MainThread]:   dbt_project.yml file [[32mOK found and valid[0m]
+[0m23:37:54.634807 [info ] [MainThread]: Required dependencies:
+[0m23:37:54.635592 [debug] [MainThread]: Executing "git --help"
+[0m23:37:54.639637 [debug] [MainThread]: STDOUT: "b"usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]\n           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]\n           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--no-lazy-fetch]\n           [--no-optional-locks] [--no-advice] [--bare] [--git-dir=<path>]\n           [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>]\n           <command> [<args>]\n\nThese are common Git commands used in various situations:\n\nstart a working area (see also: git help tutorial)\n   clone     Clone a repository into a new directory\n   init      Create an empty Git repository or reinitialize an existing one\n\nwork on the current change (see also: git help everyday)\n   add       Add file contents to the index\n   mv        Move or rename a file, a directory, or a symlink\n   restore   Restore working tree files\n   rm        Remove files from the working tree and from the index\n\nexamine the history and state (see also: git help revisions)\n   bisect    Use binary search to find the commit that introduced a bug\n   diff      Show changes between commits, commit and working tree, etc\n   grep      Print lines matching a pattern\n   log       Show commit logs\n   show      Show various types of objects\n   status    Show the working tree status\n\ngrow, mark and tweak your common history\n   branch    List, create, or delete branches\n   commit    Record changes to the repository\n   merge     Join two or more development histories together\n   rebase    Reapply commits on top of another base tip\n   reset     Reset current HEAD to the specified state\n   switch    Switch branches\n   tag       Create, list, delete or verify a tag object signed with GPG\n\ncollaborate (see also: git help workflows)\n   fetch     Download objects and refs from another repository\n   pull      Fetch from and integrate with another repository or a local branch\n   push      Update remote refs along with associated objects\n\n'git help -a' and 'git help -g' list available subcommands and some\nconcept guides. See 'git help <command>' or 'git help <concept>'\nto read about a specific subcommand or concept.\nSee 'git help git' for an overview of the system.\n""
+[0m23:37:54.641275 [debug] [MainThread]: STDERR: "b''"
+[0m23:37:54.642225 [info ] [MainThread]:  - git [[32mOK found[0m]
+
+[0m23:37:54.643745 [info ] [MainThread]: Connection:
+[0m23:37:54.644465 [info ] [MainThread]:   host: db
+[0m23:37:54.645131 [info ] [MainThread]:   port: 5432
+[0m23:37:54.646064 [info ] [MainThread]:   user: postgres
+[0m23:37:54.646892 [info ] [MainThread]:   database: spacex_db
+[0m23:37:54.647817 [info ] [MainThread]:   schema: analytics
+[0m23:37:54.648626 [info ] [MainThread]:   connect_timeout: 10
+[0m23:37:54.649336 [info ] [MainThread]:   role: None
+[0m23:37:54.650012 [info ] [MainThread]:   search_path: None
+[0m23:37:54.650715 [info ] [MainThread]:   keepalives_idle: 0
+[0m23:37:54.651437 [info ] [MainThread]:   sslmode: None
+[0m23:37:54.652099 [info ] [MainThread]:   sslcert: None
+[0m23:37:54.652794 [info ] [MainThread]:   sslkey: None
+[0m23:37:54.653536 [info ] [MainThread]:   sslrootcert: None
+[0m23:37:54.654335 [info ] [MainThread]:   application_name: dbt
+[0m23:37:54.655341 [info ] [MainThread]:   retries: 1
+[0m23:37:54.656910 [info ] [MainThread]: Registered adapter: postgres=1.10.0
+[0m23:37:54.840676 [debug] [MainThread]: Acquiring new postgres connection 'debug'
+[0m23:37:54.940359 [debug] [MainThread]: Using postgres connection "debug"
+[0m23:37:54.941200 [debug] [MainThread]: On debug: select 1 as id
+[0m23:37:54.941981 [debug] [MainThread]: Opening a new connection, currently in state init
+[0m23:37:54.965454 [debug] [MainThread]: SQL status: SELECT 1 in 0.023 seconds
+[0m23:37:54.967319 [debug] [MainThread]: On debug: Close
+[0m23:37:54.968176 [info ] [MainThread]:   Connection test: [[32mOK connection ok[0m]
+
+[0m23:37:54.971459 [info ] [MainThread]: [32mAll checks passed![0m
+[0m23:37:54.973993 [debug] [MainThread]: Resource report: {"command_name": "debug", "command_success": true, "command_wall_clock_time": 0.99056137, "process_in_blocks": "56", "process_kernel_time": 0.733888, "process_mem_max_rss": "125144", "process_out_blocks": "0", "process_user_time": 6.629736}
+[0m23:37:54.975066 [debug] [MainThread]: Command `dbt debug` succeeded at 23:37:54.974843 after 0.99 seconds
+[0m23:37:54.976121 [debug] [MainThread]: Connection 'debug' was properly closed.
+[0m23:37:54.976825 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7bcf0e5b8e00>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7bcf0df9a3c0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x7bcf0df9a840>]}
+[0m23:37:54.977701 [debug] [MainThread]: Flushing usage events
+[0m23:37:55.604722 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m23:38:03.324150 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fe5be900>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a8005b79b0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fe5bfe00>]}
+
+
+============================== 23:38:03.397829 | c7f4804f-5ce2-4d24-9cf5-77195c04d935 ==============================
+[0m23:38:03.397829 [info ] [MainThread]: Running with dbt=1.11.6
+[0m23:38:03.398882 [debug] [MainThread]: running dbt with arguments {'cache_selected_only': 'False', 'empty': 'False', 'use_experimental_parser': 'False', 'version_check': 'True', 'use_colors': 'True', 'log_format': 'default', 'introspect': 'True', 'send_anonymous_usage_stats': 'True', 'fail_fast': 'False', 'log_path': '/app/dbt/logs', 'indirect_selection': 'eager', 'write_json': 'True', 'no_print': 'None', 'log_cache_events': 'False', 'quiet': 'False', 'profiles_dir': '/app/dbt', 'printer_width': '80', 'invocation_command': 'dbt run', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'partial_parse': 'True', 'static_parser': 'True', 'debug': 'False', 'target_path': 'None', 'warn_error': 'None'}
+[0m23:38:03.787949 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'project_id', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fd108710>]}
+[0m23:38:03.921693 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'adapter_info', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fda56b40>]}
+[0m23:38:03.923567 [info ] [MainThread]: Registered adapter: postgres=1.10.0
+[0m23:38:04.119563 [debug] [MainThread]: checksum: ec27062d18352e9cfca161c166fcc73d2201661a23a3cf3c89196a27f32cfcb8, vars: {}, profile: , target: , version: 1.11.6
+[0m23:38:04.513472 [debug] [MainThread]: Partial parsing enabled: 0 files deleted, 0 files added, 0 files changed.
+[0m23:38:04.514392 [debug] [MainThread]: Nothing changed, skipping partial parsing.
+[0m23:38:04.515012 [debug] [MainThread]: Partial parsing enabled, no changes found, skipping parsing
+[0m23:38:04.524832 [warn ] [MainThread]: [[33mWARNING[0m]: Configuration paths exist in your dbt_project.yml file which do not apply to any resources.
+There are 1 unused configuration paths:
+- models.spacex_analytics.marts
+[0m23:38:04.587897 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'load_project', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fd206840>]}
+[0m23:38:04.740451 [debug] [MainThread]: Wrote artifact WritableManifest to /app/dbt/target/manifest.json
+[0m23:38:04.748491 [debug] [MainThread]: Wrote artifact SemanticManifest to /app/dbt/target/semantic_manifest.json
+[0m23:38:04.873744 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'resource_counts', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fbfa3a40>]}
+[0m23:38:04.875022 [info ] [MainThread]: Found 4 data tests, 5 models, 2 sources, 464 macros
+[0m23:38:04.882364 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'runnable_timing', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fd4c0da0>]}
+[0m23:38:04.945450 [info ] [MainThread]: 
+[0m23:38:05.250224 [info ] [MainThread]: Concurrency: 4 threads (target='dev')
+[0m23:38:05.332993 [info ] [MainThread]: 
+[0m23:38:05.486509 [debug] [MainThread]: Acquiring new postgres connection 'master'
+[0m23:38:05.557497 [debug] [ThreadPool]: Acquiring new postgres connection 'list_spacex_db'
+[0m23:38:05.984214 [debug] [ThreadPool]: Using postgres connection "list_spacex_db"
+[0m23:38:05.995283 [debug] [ThreadPool]: On list_spacex_db: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "connection_name": "list_spacex_db"} */
+
+    select distinct nspname from pg_namespace
+  
+[0m23:38:06.022517 [debug] [ThreadPool]: Opening a new connection, currently in state init
+[0m23:38:06.101643 [debug] [ThreadPool]: SQL status: SELECT 5 in 0.079 seconds
+[0m23:38:06.104103 [debug] [ThreadPool]: On list_spacex_db: Close
+[0m23:38:06.107678 [debug] [ThreadPool]: Re-using an available connection from the pool (formerly list_spacex_db, now list_spacex_db_analytics)
+[0m23:38:06.137988 [debug] [ThreadPool]: Using postgres connection "list_spacex_db_analytics"
+[0m23:38:06.138980 [debug] [ThreadPool]: On list_spacex_db_analytics: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "connection_name": "list_spacex_db_analytics"} */
+select
+      'spacex_db' as database,
+      tablename as name,
+      schemaname as schema,
+      'table' as type
+    from pg_tables
+    where schemaname ilike 'analytics'
+    union all
+    select
+      'spacex_db' as database,
+      viewname as name,
+      schemaname as schema,
+      'view' as type
+    from pg_views
+    where schemaname ilike 'analytics'
+    union all
+    select
+      'spacex_db' as database,
+      matviewname as name,
+      schemaname as schema,
+      'materialized_view' as type
+    from pg_matviews
+    where schemaname ilike 'analytics'
+  
+[0m23:38:06.139796 [debug] [ThreadPool]: Opening a new connection, currently in state closed
+[0m23:38:06.196395 [debug] [ThreadPool]: SQL status: SELECT 5 in 0.057 seconds
+[0m23:38:06.199082 [debug] [ThreadPool]: On list_spacex_db_analytics: ROLLBACK
+[0m23:38:06.200434 [debug] [ThreadPool]: On list_spacex_db_analytics: Close
+[0m23:38:06.209015 [debug] [MainThread]: Using postgres connection "master"
+[0m23:38:06.210347 [debug] [MainThread]: On master: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "connection_name": "master"} */
+select distinct
+        dependent_namespace.nspname as dependent_schema,
+        dependent_class.relname as dependent_name,
+        referenced_namespace.nspname as referenced_schema,
+        referenced_class.relname as referenced_name
+
+    -- Query for views: views are entries in pg_class with an entry in pg_rewrite, but we avoid
+    -- a seq scan on pg_rewrite by leveraging the fact there is an "internal" row in pg_depend for
+    -- the view...
+    from pg_class as dependent_class
+    join pg_namespace as dependent_namespace on dependent_namespace.oid = dependent_class.relnamespace
+    join pg_depend as dependent_depend on dependent_depend.refobjid = dependent_class.oid
+        and dependent_depend.classid = 'pg_rewrite'::regclass
+        and dependent_depend.refclassid = 'pg_class'::regclass
+        and dependent_depend.deptype = 'i'
+
+    -- ... and via pg_depend (that has a row per column, hence the need for "distinct" above, and
+    -- making sure to exclude the internal row to avoid a view appearing to depend on itself)...
+    join pg_depend as joining_depend on joining_depend.objid = dependent_depend.objid
+        and joining_depend.classid = 'pg_rewrite'::regclass
+        and joining_depend.refclassid = 'pg_class'::regclass
+        and joining_depend.refobjid != dependent_depend.refobjid
+
+    -- ... we can find the tables they query from in pg_class, but excluding system tables. Note we
+    -- don't need need to exclude _dependent_ system tables, because they only query from other
+    -- system tables, and so are automatically excluded by excluding _referenced_ system tables
+    join pg_class as referenced_class on referenced_class.oid = joining_depend.refobjid
+    join pg_namespace as referenced_namespace on referenced_namespace.oid = referenced_class.relnamespace
+        and referenced_namespace.nspname != 'information_schema'
+        and referenced_namespace.nspname not like 'pg\_%'
+
+    order by
+        dependent_schema, dependent_name, referenced_schema, referenced_name;
+[0m23:38:06.215814 [debug] [MainThread]: Opening a new connection, currently in state init
+[0m23:38:06.247857 [debug] [MainThread]: SQL status: SELECT 6 in 0.033 seconds
+[0m23:38:06.251576 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'runnable_timing', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fbfa1850>]}
+[0m23:38:06.252709 [debug] [MainThread]: On master: ROLLBACK
+[0m23:38:06.253935 [debug] [MainThread]: On master: COMMIT
+[0m23:38:06.254808 [debug] [MainThread]: Using postgres connection "master"
+[0m23:38:06.255651 [debug] [MainThread]: On master: COMMIT
+[0m23:38:06.257002 [debug] [MainThread]: SQL status: COMMIT in 0.001 seconds
+[0m23:38:06.257847 [debug] [MainThread]: On master: Close
+[0m23:38:06.268177 [debug] [Thread-1 (]: Began running node model.spacex_analytics.stg_launches
+[0m23:38:06.269097 [debug] [Thread-2 (]: Began running node model.spacex_analytics.stg_rockets
+[0m23:38:06.270003 [info ] [Thread-1 (]: 1 of 5 START sql view model analytics.stg_launches ............................. [RUN]
+[0m23:38:06.270936 [info ] [Thread-2 (]: 2 of 5 START sql view model analytics.stg_rockets .............................. [RUN]
+[0m23:38:06.271968 [debug] [Thread-1 (]: Re-using an available connection from the pool (formerly list_spacex_db_analytics, now model.spacex_analytics.stg_launches)
+[0m23:38:06.272950 [debug] [Thread-2 (]: Acquiring new postgres connection 'model.spacex_analytics.stg_rockets'
+[0m23:38:06.274277 [debug] [Thread-1 (]: Began compiling node model.spacex_analytics.stg_launches
+[0m23:38:06.275109 [debug] [Thread-2 (]: Began compiling node model.spacex_analytics.stg_rockets
+[0m23:38:06.288220 [debug] [Thread-1 (]: Writing injected SQL for node "model.spacex_analytics.stg_launches"
+[0m23:38:06.293401 [debug] [Thread-2 (]: Writing injected SQL for node "model.spacex_analytics.stg_rockets"
+[0m23:38:06.301106 [debug] [Thread-2 (]: Began executing node model.spacex_analytics.stg_rockets
+[0m23:38:06.307634 [debug] [Thread-1 (]: Began executing node model.spacex_analytics.stg_launches
+[0m23:38:06.414515 [debug] [Thread-2 (]: Writing runtime sql for node "model.spacex_analytics.stg_rockets"
+[0m23:38:06.415274 [debug] [Thread-1 (]: Writing runtime sql for node "model.spacex_analytics.stg_launches"
+[0m23:38:06.430453 [debug] [Thread-2 (]: Using postgres connection "model.spacex_analytics.stg_rockets"
+[0m23:38:06.432033 [debug] [Thread-2 (]: On model.spacex_analytics.stg_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_rockets"} */
+
+  create view "spacex_db"."analytics"."stg_rockets__dbt_tmp"
+    
+    
+  as (
+    
+
+SELECT
+    rocket_id::text AS rocket_id,
+    name AS rocket_name,
+    active,
+    cost_per_launch,
+    success_rate_pct / 100.0 AS success_rate_decimal
+FROM "spacex_db"."public"."silver_rockets"
+  );
+[0m23:38:06.433121 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.stg_launches"
+[0m23:38:06.434104 [debug] [Thread-2 (]: Opening a new connection, currently in state init
+[0m23:38:06.435426 [debug] [Thread-1 (]: On model.spacex_analytics.stg_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_launches"} */
+
+  create view "spacex_db"."analytics"."stg_launches__dbt_tmp"
+    
+    
+  as (
+    
+
+SELECT
+    launch_id::text AS launch_id,
+    name AS launch_name,
+    date_utc,
+    success AS is_success,
+    rocket::text AS rocket_id
+FROM "spacex_db"."public"."silver_launches"
+  );
+[0m23:38:06.437980 [debug] [Thread-1 (]: Opening a new connection, currently in state closed
+[0m23:38:06.496395 [debug] [Thread-1 (]: SQL status: CREATE VIEW in 0.058 seconds
+[0m23:38:06.497191 [debug] [Thread-2 (]: SQL status: CREATE VIEW in 0.063 seconds
+[0m23:38:06.520298 [debug] [Thread-2 (]: Using postgres connection "model.spacex_analytics.stg_rockets"
+[0m23:38:06.524244 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.stg_launches"
+[0m23:38:06.525558 [debug] [Thread-2 (]: On model.spacex_analytics.stg_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_rockets"} */
+alter table "spacex_db"."analytics"."stg_rockets" rename to "stg_rockets__dbt_backup"
+[0m23:38:06.527810 [debug] [Thread-1 (]: On model.spacex_analytics.stg_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_launches"} */
+alter table "spacex_db"."analytics"."stg_launches" rename to "stg_launches__dbt_backup"
+[0m23:38:06.531124 [debug] [Thread-1 (]: SQL status: ALTER TABLE in 0.001 seconds
+[0m23:38:06.531945 [debug] [Thread-2 (]: SQL status: ALTER TABLE in 0.003 seconds
+[0m23:38:06.538360 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.stg_launches"
+[0m23:38:06.542676 [debug] [Thread-2 (]: Using postgres connection "model.spacex_analytics.stg_rockets"
+[0m23:38:06.544068 [debug] [Thread-1 (]: On model.spacex_analytics.stg_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_launches"} */
+alter table "spacex_db"."analytics"."stg_launches__dbt_tmp" rename to "stg_launches"
+[0m23:38:06.545343 [debug] [Thread-2 (]: On model.spacex_analytics.stg_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_rockets"} */
+alter table "spacex_db"."analytics"."stg_rockets__dbt_tmp" rename to "stg_rockets"
+[0m23:38:06.547686 [debug] [Thread-1 (]: SQL status: ALTER TABLE in 0.001 seconds
+[0m23:38:06.548698 [debug] [Thread-2 (]: SQL status: ALTER TABLE in 0.002 seconds
+[0m23:38:06.592769 [debug] [Thread-1 (]: On model.spacex_analytics.stg_launches: COMMIT
+[0m23:38:06.592172 [debug] [Thread-2 (]: On model.spacex_analytics.stg_rockets: COMMIT
+[0m23:38:06.593893 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.stg_launches"
+[0m23:38:06.595055 [debug] [Thread-2 (]: Using postgres connection "model.spacex_analytics.stg_rockets"
+[0m23:38:06.595959 [debug] [Thread-1 (]: On model.spacex_analytics.stg_launches: COMMIT
+[0m23:38:06.596801 [debug] [Thread-2 (]: On model.spacex_analytics.stg_rockets: COMMIT
+[0m23:38:06.606374 [debug] [Thread-1 (]: SQL status: COMMIT in 0.009 seconds
+[0m23:38:06.612925 [debug] [Thread-2 (]: SQL status: COMMIT in 0.015 seconds
+[0m23:38:06.617252 [debug] [Thread-1 (]: Applying DROP to: "spacex_db"."analytics"."stg_launches__dbt_backup"
+[0m23:38:06.620798 [debug] [Thread-2 (]: Applying DROP to: "spacex_db"."analytics"."stg_rockets__dbt_backup"
+[0m23:38:06.631595 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.stg_launches"
+[0m23:38:06.632788 [debug] [Thread-2 (]: Using postgres connection "model.spacex_analytics.stg_rockets"
+[0m23:38:06.633779 [debug] [Thread-1 (]: On model.spacex_analytics.stg_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_launches"} */
+drop view if exists "spacex_db"."analytics"."stg_launches__dbt_backup" cascade
+[0m23:38:06.634638 [debug] [Thread-2 (]: On model.spacex_analytics.stg_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.stg_rockets"} */
+drop view if exists "spacex_db"."analytics"."stg_rockets__dbt_backup" cascade
+[0m23:38:06.644289 [debug] [Thread-1 (]: SQL status: DROP VIEW in 0.009 seconds
+[0m23:38:06.645228 [debug] [Thread-2 (]: SQL status: DROP VIEW in 0.009 seconds
+[0m23:38:06.648975 [debug] [Thread-1 (]: On model.spacex_analytics.stg_launches: Close
+[0m23:38:06.651618 [debug] [Thread-2 (]: On model.spacex_analytics.stg_rockets: Close
+[0m23:38:06.658233 [debug] [Thread-1 (]: Sending event: {'category': 'dbt', 'action': 'run_model', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a8000d5c10>]}
+[0m23:38:06.659076 [debug] [Thread-2 (]: Sending event: {'category': 'dbt', 'action': 'run_model', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fab43b00>]}
+[0m23:38:06.660455 [info ] [Thread-1 (]: 1 of 5 OK created sql view model analytics.stg_launches ........................ [[32mCREATE VIEW[0m in 0.38s]
+[0m23:38:06.661660 [info ] [Thread-2 (]: 2 of 5 OK created sql view model analytics.stg_rockets ......................... [[32mCREATE VIEW[0m in 0.38s]
+[0m23:38:06.662822 [debug] [Thread-1 (]: Finished running node model.spacex_analytics.stg_launches
+[0m23:38:06.664024 [debug] [Thread-2 (]: Finished running node model.spacex_analytics.stg_rockets
+[0m23:38:06.666191 [debug] [Thread-4 (]: Began running node model.spacex_analytics.dim_rockets
+[0m23:38:06.667240 [info ] [Thread-4 (]: 3 of 5 START sql table model analytics.dim_rockets ............................. [RUN]
+[0m23:38:06.668282 [debug] [Thread-4 (]: Acquiring new postgres connection 'model.spacex_analytics.dim_rockets'
+[0m23:38:06.668999 [debug] [Thread-4 (]: Began compiling node model.spacex_analytics.dim_rockets
+[0m23:38:06.673697 [debug] [Thread-4 (]: Writing injected SQL for node "model.spacex_analytics.dim_rockets"
+[0m23:38:06.683985 [debug] [Thread-4 (]: Began executing node model.spacex_analytics.dim_rockets
+[0m23:38:06.719666 [debug] [Thread-4 (]: Writing runtime sql for node "model.spacex_analytics.dim_rockets"
+[0m23:38:06.730286 [debug] [Thread-4 (]: Using postgres connection "model.spacex_analytics.dim_rockets"
+[0m23:38:06.731550 [debug] [Thread-4 (]: On model.spacex_analytics.dim_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.dim_rockets"} */
+
+  
+    
+
+  create  table "spacex_db"."analytics"."dim_rockets__dbt_tmp"
+  
+  
+    as
+  
+  (
+    
+
+SELECT DISTINCT
+    rocket_id,
+    rocket_name,
+    cost_per_launch
+FROM "spacex_db"."analytics"."stg_rockets"
+  );
+  
+[0m23:38:06.732674 [debug] [Thread-4 (]: Opening a new connection, currently in state init
+[0m23:38:06.762670 [debug] [Thread-4 (]: SQL status: SELECT 4 in 0.030 seconds
+[0m23:38:06.772593 [debug] [Thread-4 (]: Using postgres connection "model.spacex_analytics.dim_rockets"
+[0m23:38:06.773717 [debug] [Thread-4 (]: On model.spacex_analytics.dim_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.dim_rockets"} */
+alter table "spacex_db"."analytics"."dim_rockets" rename to "dim_rockets__dbt_backup"
+[0m23:38:06.775566 [debug] [Thread-4 (]: SQL status: ALTER TABLE in 0.001 seconds
+[0m23:38:06.781293 [debug] [Thread-4 (]: Using postgres connection "model.spacex_analytics.dim_rockets"
+[0m23:38:06.782333 [debug] [Thread-4 (]: On model.spacex_analytics.dim_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.dim_rockets"} */
+alter table "spacex_db"."analytics"."dim_rockets__dbt_tmp" rename to "dim_rockets"
+[0m23:38:06.784155 [debug] [Thread-4 (]: SQL status: ALTER TABLE in 0.001 seconds
+[0m23:38:06.786666 [debug] [Thread-4 (]: On model.spacex_analytics.dim_rockets: COMMIT
+[0m23:38:06.787466 [debug] [Thread-4 (]: Using postgres connection "model.spacex_analytics.dim_rockets"
+[0m23:38:06.788162 [debug] [Thread-4 (]: On model.spacex_analytics.dim_rockets: COMMIT
+[0m23:38:06.790702 [debug] [Thread-4 (]: SQL status: COMMIT in 0.002 seconds
+[0m23:38:06.795678 [debug] [Thread-4 (]: Applying DROP to: "spacex_db"."analytics"."dim_rockets__dbt_backup"
+[0m23:38:06.801191 [debug] [Thread-4 (]: Using postgres connection "model.spacex_analytics.dim_rockets"
+[0m23:38:06.802189 [debug] [Thread-4 (]: On model.spacex_analytics.dim_rockets: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.dim_rockets"} */
+drop table if exists "spacex_db"."analytics"."dim_rockets__dbt_backup" cascade
+[0m23:38:06.813637 [debug] [Thread-4 (]: SQL status: DROP TABLE in 0.011 seconds
+[0m23:38:06.816203 [debug] [Thread-4 (]: On model.spacex_analytics.dim_rockets: Close
+[0m23:38:06.817359 [debug] [Thread-4 (]: Sending event: {'category': 'dbt', 'action': 'run_model', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7faf28770>]}
+[0m23:38:06.818585 [info ] [Thread-4 (]: 3 of 5 OK created sql table model analytics.dim_rockets ........................ [[32mSELECT 4[0m in 0.15s]
+[0m23:38:06.819823 [debug] [Thread-4 (]: Finished running node model.spacex_analytics.dim_rockets
+[0m23:38:06.821495 [debug] [Thread-1 (]: Began running node model.spacex_analytics.fct_launches
+[0m23:38:06.822666 [info ] [Thread-1 (]: 4 of 5 START sql table model analytics.fct_launches ............................ [RUN]
+[0m23:38:06.823701 [debug] [Thread-1 (]: Re-using an available connection from the pool (formerly model.spacex_analytics.stg_launches, now model.spacex_analytics.fct_launches)
+[0m23:38:06.824478 [debug] [Thread-1 (]: Began compiling node model.spacex_analytics.fct_launches
+[0m23:38:06.831248 [debug] [Thread-1 (]: Writing injected SQL for node "model.spacex_analytics.fct_launches"
+[0m23:38:06.840965 [debug] [Thread-1 (]: Began executing node model.spacex_analytics.fct_launches
+[0m23:38:06.847290 [debug] [Thread-1 (]: Writing runtime sql for node "model.spacex_analytics.fct_launches"
+[0m23:38:06.858370 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.fct_launches"
+[0m23:38:06.859322 [debug] [Thread-1 (]: On model.spacex_analytics.fct_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.fct_launches"} */
+
+  
+    
+
+  create  table "spacex_db"."analytics"."fct_launches__dbt_tmp"
+  
+  
+    as
+  
+  (
+    
+
+WITH launches AS (
+    SELECT * FROM "spacex_db"."analytics"."stg_launches"
+),
+rockets AS (
+    SELECT * FROM "spacex_db"."analytics"."dim_rockets"
+)
+
+SELECT
+    l.launch_id,
+    l.launch_name,
+    l.date_utc,
+    l.is_success,
+    r.rocket_id,
+    r.cost_per_launch,
+    CASE 
+        WHEN l.is_success = TRUE THEN r.cost_per_launch 
+        ELSE 0 
+    END AS cost_of_success
+FROM launches l
+LEFT JOIN rockets r
+    ON l.rocket_id = r.rocket_id
+  );
+  
+[0m23:38:06.860411 [debug] [Thread-1 (]: Opening a new connection, currently in state closed
+[0m23:38:06.891575 [debug] [Thread-1 (]: SQL status: SELECT 205 in 0.031 seconds
+[0m23:38:06.896912 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.fct_launches"
+[0m23:38:06.897874 [debug] [Thread-1 (]: On model.spacex_analytics.fct_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.fct_launches"} */
+alter table "spacex_db"."analytics"."fct_launches" rename to "fct_launches__dbt_backup"
+[0m23:38:06.899767 [debug] [Thread-1 (]: SQL status: ALTER TABLE in 0.001 seconds
+[0m23:38:06.904480 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.fct_launches"
+[0m23:38:06.905851 [debug] [Thread-1 (]: On model.spacex_analytics.fct_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.fct_launches"} */
+alter table "spacex_db"."analytics"."fct_launches__dbt_tmp" rename to "fct_launches"
+[0m23:38:06.909488 [debug] [Thread-1 (]: SQL status: ALTER TABLE in 0.001 seconds
+[0m23:38:06.912083 [debug] [Thread-1 (]: On model.spacex_analytics.fct_launches: COMMIT
+[0m23:38:06.912940 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.fct_launches"
+[0m23:38:06.913661 [debug] [Thread-1 (]: On model.spacex_analytics.fct_launches: COMMIT
+[0m23:38:06.916000 [debug] [Thread-1 (]: SQL status: COMMIT in 0.002 seconds
+[0m23:38:06.922220 [debug] [Thread-1 (]: Applying DROP to: "spacex_db"."analytics"."fct_launches__dbt_backup"
+[0m23:38:06.926194 [debug] [Thread-1 (]: Using postgres connection "model.spacex_analytics.fct_launches"
+[0m23:38:06.928147 [debug] [Thread-1 (]: On model.spacex_analytics.fct_launches: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.fct_launches"} */
+drop table if exists "spacex_db"."analytics"."fct_launches__dbt_backup" cascade
+[0m23:38:06.937754 [debug] [Thread-1 (]: SQL status: DROP TABLE in 0.008 seconds
+[0m23:38:06.941454 [debug] [Thread-1 (]: On model.spacex_analytics.fct_launches: Close
+[0m23:38:06.943121 [debug] [Thread-1 (]: Sending event: {'category': 'dbt', 'action': 'run_model', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fab94aa0>]}
+[0m23:38:06.946103 [info ] [Thread-1 (]: 4 of 5 OK created sql table model analytics.fct_launches ....................... [[32mSELECT 205[0m in 0.12s]
+[0m23:38:06.948656 [debug] [Thread-1 (]: Finished running node model.spacex_analytics.fct_launches
+[0m23:38:06.951946 [debug] [Thread-3 (]: Began running node model.spacex_analytics.gold_rocket_performance
+[0m23:38:06.953327 [info ] [Thread-3 (]: 5 of 5 START sql view model analytics.gold_rocket_performance .................. [RUN]
+[0m23:38:06.954540 [debug] [Thread-3 (]: Acquiring new postgres connection 'model.spacex_analytics.gold_rocket_performance'
+[0m23:38:06.955314 [debug] [Thread-3 (]: Began compiling node model.spacex_analytics.gold_rocket_performance
+[0m23:38:06.961425 [debug] [Thread-3 (]: Writing injected SQL for node "model.spacex_analytics.gold_rocket_performance"
+[0m23:38:06.971502 [debug] [Thread-3 (]: Began executing node model.spacex_analytics.gold_rocket_performance
+[0m23:38:06.976725 [debug] [Thread-3 (]: Writing runtime sql for node "model.spacex_analytics.gold_rocket_performance"
+[0m23:38:06.987153 [debug] [Thread-3 (]: Using postgres connection "model.spacex_analytics.gold_rocket_performance"
+[0m23:38:06.988228 [debug] [Thread-3 (]: On model.spacex_analytics.gold_rocket_performance: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.gold_rocket_performance"} */
+
+  create view "spacex_db"."analytics"."gold_rocket_performance__dbt_tmp"
+    
+    
+  as (
+    
+
+WITH launches AS (
+    SELECT * 
+    FROM "spacex_db"."analytics"."fct_launches"
+),
+rockets AS (
+    SELECT * 
+    FROM "spacex_db"."analytics"."dim_rockets"
+)
+
+SELECT
+    r.rocket_id,
+    r.rocket_name,
+    COUNT(l.launch_id) AS total_launches,
+    COUNT(CASE WHEN l.is_success = TRUE THEN 1 END) AS successful_launches,
+    SUM(l.cost_per_launch) AS total_cost,
+    SUM(l.cost_of_success) AS total_cost_success,
+    ROUND(
+        CASE WHEN COUNT(l.launch_id) > 0 
+            THEN COUNT(CASE WHEN l.is_success = TRUE THEN 1 END)::numeric / COUNT(l.launch_id)
+            ELSE 0
+        END, 2
+    ) AS success_rate
+FROM rockets r
+LEFT JOIN launches l
+    ON r.rocket_id = l.rocket_id
+GROUP BY r.rocket_id, r.rocket_name
+ORDER BY total_launches DESC
+  );
+[0m23:38:06.989053 [debug] [Thread-3 (]: Opening a new connection, currently in state init
+[0m23:38:07.027056 [debug] [Thread-3 (]: SQL status: CREATE VIEW in 0.038 seconds
+[0m23:38:07.034063 [debug] [Thread-3 (]: Using postgres connection "model.spacex_analytics.gold_rocket_performance"
+[0m23:38:07.035449 [debug] [Thread-3 (]: On model.spacex_analytics.gold_rocket_performance: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.gold_rocket_performance"} */
+alter table "spacex_db"."analytics"."gold_rocket_performance__dbt_tmp" rename to "gold_rocket_performance"
+[0m23:38:07.038017 [debug] [Thread-3 (]: SQL status: ALTER TABLE in 0.001 seconds
+[0m23:38:07.040492 [debug] [Thread-3 (]: On model.spacex_analytics.gold_rocket_performance: COMMIT
+[0m23:38:07.041537 [debug] [Thread-3 (]: Using postgres connection "model.spacex_analytics.gold_rocket_performance"
+[0m23:38:07.042332 [debug] [Thread-3 (]: On model.spacex_analytics.gold_rocket_performance: COMMIT
+[0m23:38:07.048680 [debug] [Thread-3 (]: SQL status: COMMIT in 0.003 seconds
+[0m23:38:07.070577 [debug] [Thread-3 (]: Applying DROP to: "spacex_db"."analytics"."gold_rocket_performance__dbt_backup"
+[0m23:38:07.092502 [debug] [Thread-3 (]: Using postgres connection "model.spacex_analytics.gold_rocket_performance"
+[0m23:38:07.108870 [debug] [Thread-3 (]: On model.spacex_analytics.gold_rocket_performance: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "model.spacex_analytics.gold_rocket_performance"} */
+drop view if exists "spacex_db"."analytics"."gold_rocket_performance__dbt_backup" cascade
+[0m23:38:07.126352 [debug] [Thread-3 (]: SQL status: DROP VIEW in 0.002 seconds
+[0m23:38:07.132803 [debug] [Thread-3 (]: On model.spacex_analytics.gold_rocket_performance: Close
+[0m23:38:07.134998 [debug] [Thread-3 (]: Sending event: {'category': 'dbt', 'action': 'run_model', 'label': 'c7f4804f-5ce2-4d24-9cf5-77195c04d935', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fd207f20>]}
+[0m23:38:07.140523 [info ] [Thread-3 (]: 5 of 5 OK created sql view model analytics.gold_rocket_performance ............. [[32mCREATE VIEW[0m in 0.18s]
+[0m23:38:07.142323 [debug] [Thread-3 (]: Finished running node model.spacex_analytics.gold_rocket_performance
+[0m23:38:07.146807 [debug] [MainThread]: On master: COMMIT
+[0m23:38:07.147940 [debug] [MainThread]: Using postgres connection "master"
+[0m23:38:07.149262 [debug] [MainThread]: On master: COMMIT
+[0m23:38:07.150188 [debug] [MainThread]: Opening a new connection, currently in state closed
+[0m23:38:07.173771 [debug] [MainThread]: SQL status: COMMIT in 0.023 seconds
+[0m23:38:07.178438 [debug] [MainThread]: On master: Close
+[0m23:38:07.182498 [debug] [MainThread]: Connection 'master' was properly closed.
+[0m23:38:07.187271 [debug] [MainThread]: Connection 'model.spacex_analytics.fct_launches' was properly closed.
+[0m23:38:07.189148 [debug] [MainThread]: Connection 'model.spacex_analytics.stg_rockets' was properly closed.
+[0m23:38:07.191025 [debug] [MainThread]: Connection 'model.spacex_analytics.dim_rockets' was properly closed.
+[0m23:38:07.202593 [debug] [MainThread]: Connection 'model.spacex_analytics.gold_rocket_performance' was properly closed.
+[0m23:38:07.206998 [info ] [MainThread]: 
+[0m23:38:07.208412 [info ] [MainThread]: Finished running 2 table models, 3 view models in 0 hours 0 minutes and 1.72 seconds (1.72s).
+[0m23:38:07.212117 [debug] [MainThread]: Command end result
+[0m23:38:07.275652 [debug] [MainThread]: Wrote artifact WritableManifest to /app/dbt/target/manifest.json
+[0m23:38:07.282220 [debug] [MainThread]: Wrote artifact SemanticManifest to /app/dbt/target/semantic_manifest.json
+[0m23:38:07.294488 [debug] [MainThread]: Wrote artifact RunExecutionResult to /app/dbt/target/run_results.json
+[0m23:38:07.295275 [info ] [MainThread]: 
+[0m23:38:07.296072 [info ] [MainThread]: [32mCompleted successfully[0m
+[0m23:38:07.297463 [info ] [MainThread]: 
+[0m23:38:07.298293 [info ] [MainThread]: Done. PASS=5 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=5
+[0m23:38:07.300398 [debug] [MainThread]: Resource report: {"command_name": "run", "command_success": true, "command_wall_clock_time": 4.248659, "process_in_blocks": "80", "process_kernel_time": 0.975205, "process_mem_max_rss": "134520", "process_out_blocks": "0", "process_user_time": 8.333576}
+[0m23:38:07.301370 [debug] [MainThread]: Command `dbt run` succeeded at 23:38:07.301212 after 4.25 seconds
+[0m23:38:07.302042 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fda56360>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fe5bf830>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x79a7fe5be7e0>]}
+[0m23:38:07.302702 [debug] [MainThread]: Flushing usage events
+[0m23:38:08.011148 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m23:38:15.960055 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2f3169610>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2f10e20c0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2f10e30e0>]}
+
+
+============================== 23:38:16.066794 | 225ac47a-957d-4d68-830b-d777e77f77ba ==============================
+[0m23:38:16.066794 [info ] [MainThread]: Running with dbt=1.11.6
+[0m23:38:16.067968 [debug] [MainThread]: running dbt with arguments {'log_cache_events': 'False', 'version_check': 'True', 'introspect': 'True', 'debug': 'False', 'use_experimental_parser': 'False', 'cache_selected_only': 'False', 'indirect_selection': 'eager', 'static_parser': 'True', 'target_path': 'None', 'invocation_command': 'dbt test', 'partial_parse': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'fail_fast': 'False', 'log_format': 'default', 'warn_error': 'None', 'use_colors': 'True', 'empty': 'None', 'no_print': 'None', 'printer_width': '80', 'send_anonymous_usage_stats': 'True', 'quiet': 'False', 'profiles_dir': '/app/dbt', 'log_path': '/app/dbt/logs', 'write_json': 'True'}
+[0m23:38:16.416675 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'project_id', 'label': '225ac47a-957d-4d68-830b-d777e77f77ba', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2f0ebcef0>]}
+[0m23:38:16.535933 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'adapter_info', 'label': '225ac47a-957d-4d68-830b-d777e77f77ba', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2f0ebdac0>]}
+[0m23:38:16.537563 [info ] [MainThread]: Registered adapter: postgres=1.10.0
+[0m23:38:16.714208 [debug] [MainThread]: checksum: ec27062d18352e9cfca161c166fcc73d2201661a23a3cf3c89196a27f32cfcb8, vars: {}, profile: , target: , version: 1.11.6
+[0m23:38:17.034518 [debug] [MainThread]: Partial parsing enabled: 0 files deleted, 0 files added, 0 files changed.
+[0m23:38:17.035486 [debug] [MainThread]: Nothing changed, skipping partial parsing.
+[0m23:38:17.036200 [debug] [MainThread]: Partial parsing enabled, no changes found, skipping parsing
+[0m23:38:17.045722 [warn ] [MainThread]: [[33mWARNING[0m]: Configuration paths exist in your dbt_project.yml file which do not apply to any resources.
+There are 1 unused configuration paths:
+- models.spacex_analytics.marts
+[0m23:38:17.109265 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'load_project', 'label': '225ac47a-957d-4d68-830b-d777e77f77ba', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2efd14530>]}
+[0m23:38:17.252931 [debug] [MainThread]: Wrote artifact WritableManifest to /app/dbt/target/manifest.json
+[0m23:38:17.259595 [debug] [MainThread]: Wrote artifact SemanticManifest to /app/dbt/target/semantic_manifest.json
+[0m23:38:17.554383 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'resource_counts', 'label': '225ac47a-957d-4d68-830b-d777e77f77ba', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2ef1a9940>]}
+[0m23:38:17.555416 [info ] [MainThread]: Found 4 data tests, 5 models, 2 sources, 464 macros
+[0m23:38:17.556507 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'runnable_timing', 'label': '225ac47a-957d-4d68-830b-d777e77f77ba', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2efbe9160>]}
+[0m23:38:17.560505 [info ] [MainThread]: 
+[0m23:38:17.561514 [info ] [MainThread]: Concurrency: 4 threads (target='dev')
+[0m23:38:17.562290 [info ] [MainThread]: 
+[0m23:38:17.563341 [debug] [MainThread]: Acquiring new postgres connection 'master'
+[0m23:38:17.570661 [debug] [ThreadPool]: Acquiring new postgres connection 'list_spacex_db_analytics'
+[0m23:38:17.670875 [debug] [ThreadPool]: Using postgres connection "list_spacex_db_analytics"
+[0m23:38:17.672575 [debug] [ThreadPool]: On list_spacex_db_analytics: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "connection_name": "list_spacex_db_analytics"} */
+select
+      'spacex_db' as database,
+      tablename as name,
+      schemaname as schema,
+      'table' as type
+    from pg_tables
+    where schemaname ilike 'analytics'
+    union all
+    select
+      'spacex_db' as database,
+      viewname as name,
+      schemaname as schema,
+      'view' as type
+    from pg_views
+    where schemaname ilike 'analytics'
+    union all
+    select
+      'spacex_db' as database,
+      matviewname as name,
+      schemaname as schema,
+      'materialized_view' as type
+    from pg_matviews
+    where schemaname ilike 'analytics'
+  
+[0m23:38:17.674752 [debug] [ThreadPool]: Opening a new connection, currently in state init
+[0m23:38:17.714280 [debug] [ThreadPool]: SQL status: SELECT 5 in 0.039 seconds
+[0m23:38:17.716709 [debug] [ThreadPool]: On list_spacex_db_analytics: ROLLBACK
+[0m23:38:17.717759 [debug] [ThreadPool]: On list_spacex_db_analytics: Close
+[0m23:38:17.727245 [debug] [MainThread]: Using postgres connection "master"
+[0m23:38:17.729360 [debug] [MainThread]: On master: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "connection_name": "master"} */
+select distinct
+        dependent_namespace.nspname as dependent_schema,
+        dependent_class.relname as dependent_name,
+        referenced_namespace.nspname as referenced_schema,
+        referenced_class.relname as referenced_name
+
+    -- Query for views: views are entries in pg_class with an entry in pg_rewrite, but we avoid
+    -- a seq scan on pg_rewrite by leveraging the fact there is an "internal" row in pg_depend for
+    -- the view...
+    from pg_class as dependent_class
+    join pg_namespace as dependent_namespace on dependent_namespace.oid = dependent_class.relnamespace
+    join pg_depend as dependent_depend on dependent_depend.refobjid = dependent_class.oid
+        and dependent_depend.classid = 'pg_rewrite'::regclass
+        and dependent_depend.refclassid = 'pg_class'::regclass
+        and dependent_depend.deptype = 'i'
+
+    -- ... and via pg_depend (that has a row per column, hence the need for "distinct" above, and
+    -- making sure to exclude the internal row to avoid a view appearing to depend on itself)...
+    join pg_depend as joining_depend on joining_depend.objid = dependent_depend.objid
+        and joining_depend.classid = 'pg_rewrite'::regclass
+        and joining_depend.refclassid = 'pg_class'::regclass
+        and joining_depend.refobjid != dependent_depend.refobjid
+
+    -- ... we can find the tables they query from in pg_class, but excluding system tables. Note we
+    -- don't need need to exclude _dependent_ system tables, because they only query from other
+    -- system tables, and so are automatically excluded by excluding _referenced_ system tables
+    join pg_class as referenced_class on referenced_class.oid = joining_depend.refobjid
+    join pg_namespace as referenced_namespace on referenced_namespace.oid = referenced_class.relnamespace
+        and referenced_namespace.nspname != 'information_schema'
+        and referenced_namespace.nspname not like 'pg\_%'
+
+    order by
+        dependent_schema, dependent_name, referenced_schema, referenced_name;
+[0m23:38:17.730633 [debug] [MainThread]: Opening a new connection, currently in state init
+[0m23:38:17.762394 [debug] [MainThread]: SQL status: SELECT 6 in 0.032 seconds
+[0m23:38:17.765482 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'runnable_timing', 'label': '225ac47a-957d-4d68-830b-d777e77f77ba', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2efebccb0>]}
+[0m23:38:17.766431 [debug] [MainThread]: On master: ROLLBACK
+[0m23:38:17.767430 [debug] [MainThread]: On master: COMMIT
+[0m23:38:17.768135 [debug] [MainThread]: Using postgres connection "master"
+[0m23:38:17.768817 [debug] [MainThread]: On master: COMMIT
+[0m23:38:17.769855 [debug] [MainThread]: SQL status: COMMIT in 0.000 seconds
+[0m23:38:17.770605 [debug] [MainThread]: On master: Close
+[0m23:38:17.782902 [debug] [Thread-1 (]: Began running node test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187
+[0m23:38:17.783693 [debug] [Thread-2 (]: Began running node test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52
+[0m23:38:17.784368 [debug] [Thread-3 (]: Began running node test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680
+[0m23:38:17.784991 [debug] [Thread-4 (]: Began running node test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c
+[0m23:38:17.785601 [info ] [Thread-1 (]: 1 of 4 START test source_not_null_spacex_raw_silver_launches_launch_id ......... [RUN]
+[0m23:38:17.786492 [info ] [Thread-2 (]: 2 of 4 START test source_not_null_spacex_raw_silver_rockets_rocket_id .......... [RUN]
+[0m23:38:17.787356 [info ] [Thread-3 (]: 3 of 4 START test source_unique_spacex_raw_silver_launches_launch_id ........... [RUN]
+[0m23:38:17.788184 [info ] [Thread-4 (]: 4 of 4 START test source_unique_spacex_raw_silver_rockets_rocket_id ............ [RUN]
+[0m23:38:17.789201 [debug] [Thread-1 (]: Re-using an available connection from the pool (formerly list_spacex_db_analytics, now test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187)
+[0m23:38:17.790565 [debug] [Thread-2 (]: Acquiring new postgres connection 'test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52'
+[0m23:38:17.792164 [debug] [Thread-3 (]: Acquiring new postgres connection 'test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680'
+[0m23:38:17.793588 [debug] [Thread-4 (]: Acquiring new postgres connection 'test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c'
+[0m23:38:17.795026 [debug] [Thread-1 (]: Began compiling node test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187
+[0m23:38:17.796500 [debug] [Thread-2 (]: Began compiling node test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52
+[0m23:38:17.797723 [debug] [Thread-3 (]: Began compiling node test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680
+[0m23:38:17.799248 [debug] [Thread-4 (]: Began compiling node test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c
+[0m23:38:17.853867 [debug] [Thread-1 (]: Writing injected SQL for node "test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187"
+[0m23:38:17.856042 [debug] [Thread-3 (]: Writing injected SQL for node "test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680"
+[0m23:38:17.859208 [debug] [Thread-2 (]: Writing injected SQL for node "test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52"
+[0m23:38:17.861149 [debug] [Thread-4 (]: Writing injected SQL for node "test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c"
+[0m23:38:17.865879 [debug] [Thread-1 (]: Began executing node test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187
+[0m23:38:17.866567 [debug] [Thread-3 (]: Began executing node test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680
+[0m23:38:17.878332 [debug] [Thread-2 (]: Began executing node test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52
+[0m23:38:17.894593 [debug] [Thread-4 (]: Began executing node test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c
+[0m23:38:17.929206 [debug] [Thread-2 (]: Writing runtime sql for node "test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52"
+[0m23:38:17.932053 [debug] [Thread-1 (]: Writing runtime sql for node "test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187"
+[0m23:38:17.932840 [debug] [Thread-3 (]: Writing runtime sql for node "test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680"
+[0m23:38:17.936213 [debug] [Thread-4 (]: Writing runtime sql for node "test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c"
+[0m23:38:17.943492 [debug] [Thread-2 (]: Using postgres connection "test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52"
+[0m23:38:17.944601 [debug] [Thread-2 (]: On test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52"} */
+
+    select
+      count(*) as failures,
+      count(*) != 0 as should_warn,
+      count(*) != 0 as should_error
+    from (
+      
+    
+  
+    
+    
+
+
+
+select rocket_id
+from "spacex_db"."public"."silver_rockets"
+where rocket_id is null
+
+
+
+  
+  
+      
+    ) dbt_internal_test
+[0m23:38:17.945354 [debug] [Thread-4 (]: Using postgres connection "test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c"
+[0m23:38:17.946157 [debug] [Thread-3 (]: Using postgres connection "test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680"
+[0m23:38:17.946761 [debug] [Thread-2 (]: Opening a new connection, currently in state init
+[0m23:38:17.947726 [debug] [Thread-4 (]: On test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c"} */
+
+    select
+      count(*) as failures,
+      count(*) != 0 as should_warn,
+      count(*) != 0 as should_error
+    from (
+      
+    
+  
+    
+    
+
+select
+    rocket_id as unique_field,
+    count(*) as n_records
+
+from "spacex_db"."public"."silver_rockets"
+where rocket_id is not null
+group by rocket_id
+having count(*) > 1
+
+
+
+  
+  
+      
+    ) dbt_internal_test
+[0m23:38:17.948651 [debug] [Thread-3 (]: On test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680"} */
+
+    select
+      count(*) as failures,
+      count(*) != 0 as should_warn,
+      count(*) != 0 as should_error
+    from (
+      
+    
+  
+    
+    
+
+select
+    launch_id as unique_field,
+    count(*) as n_records
+
+from "spacex_db"."public"."silver_launches"
+where launch_id is not null
+group by launch_id
+having count(*) > 1
+
+
+
+  
+  
+      
+    ) dbt_internal_test
+[0m23:38:17.949249 [debug] [Thread-1 (]: Using postgres connection "test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187"
+[0m23:38:17.950576 [debug] [Thread-4 (]: Opening a new connection, currently in state init
+[0m23:38:17.951416 [debug] [Thread-3 (]: Opening a new connection, currently in state init
+[0m23:38:17.952419 [debug] [Thread-1 (]: On test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187: /* {"app": "dbt", "dbt_version": "1.11.6", "profile_name": "spacex_profile", "target_name": "dev", "node_id": "test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187"} */
+
+    select
+      count(*) as failures,
+      count(*) != 0 as should_warn,
+      count(*) != 0 as should_error
+    from (
+      
+    
+  
+    
+    
+
+
+
+select launch_id
+from "spacex_db"."public"."silver_launches"
+where launch_id is null
+
+
+
+  
+  
+      
+    ) dbt_internal_test
+[0m23:38:17.955596 [debug] [Thread-1 (]: Opening a new connection, currently in state closed
+[0m23:38:17.974380 [debug] [Thread-1 (]: SQL status: SELECT 1 in 0.019 seconds
+[0m23:38:17.975122 [debug] [Thread-3 (]: SQL status: SELECT 1 in 0.024 seconds
+[0m23:38:17.984453 [debug] [Thread-3 (]: On test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680: ROLLBACK
+[0m23:38:17.981651 [debug] [Thread-2 (]: SQL status: SELECT 1 in 0.035 seconds
+[0m23:38:17.982168 [debug] [Thread-1 (]: On test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187: ROLLBACK
+[0m23:38:17.975691 [debug] [Thread-4 (]: SQL status: SELECT 1 in 0.025 seconds
+[0m23:38:17.987573 [debug] [Thread-2 (]: On test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52: ROLLBACK
+[0m23:38:17.988250 [debug] [Thread-3 (]: On test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680: Close
+[0m23:38:17.991443 [debug] [Thread-4 (]: On test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c: ROLLBACK
+[0m23:38:17.992198 [debug] [Thread-1 (]: On test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187: Close
+[0m23:38:17.993121 [debug] [Thread-2 (]: On test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52: Close
+[0m23:38:17.994265 [info ] [Thread-3 (]: 3 of 4 PASS source_unique_spacex_raw_silver_launches_launch_id ................. [[32mPASS[0m in 0.20s]
+[0m23:38:17.995116 [debug] [Thread-4 (]: On test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c: Close
+[0m23:38:17.996753 [info ] [Thread-2 (]: 2 of 4 PASS source_not_null_spacex_raw_silver_rockets_rocket_id ................ [[32mPASS[0m in 0.21s]
+[0m23:38:18.002808 [debug] [Thread-2 (]: Finished running node test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52
+[0m23:38:17.998999 [info ] [Thread-1 (]: 1 of 4 PASS source_not_null_spacex_raw_silver_launches_launch_id ............... [[32mPASS[0m in 0.21s]
+[0m23:38:17.997957 [debug] [Thread-3 (]: Finished running node test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680
+[0m23:38:18.000836 [info ] [Thread-4 (]: 4 of 4 PASS source_unique_spacex_raw_silver_rockets_rocket_id .................. [[32mPASS[0m in 0.21s]
+[0m23:38:18.004863 [debug] [Thread-1 (]: Finished running node test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187
+[0m23:38:18.006476 [debug] [Thread-4 (]: Finished running node test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c
+[0m23:38:18.010832 [debug] [MainThread]: On master: COMMIT
+[0m23:38:18.011796 [debug] [MainThread]: Using postgres connection "master"
+[0m23:38:18.013336 [debug] [MainThread]: On master: COMMIT
+[0m23:38:18.014231 [debug] [MainThread]: Opening a new connection, currently in state closed
+[0m23:38:18.031258 [debug] [MainThread]: SQL status: COMMIT in 0.017 seconds
+[0m23:38:18.032135 [debug] [MainThread]: On master: Close
+[0m23:38:18.033017 [debug] [MainThread]: Connection 'master' was properly closed.
+[0m23:38:18.033709 [debug] [MainThread]: Connection 'test.spacex_analytics.source_not_null_spacex_raw_silver_launches_launch_id.f1cbe10187' was properly closed.
+[0m23:38:18.034373 [debug] [MainThread]: Connection 'test.spacex_analytics.source_not_null_spacex_raw_silver_rockets_rocket_id.bc86f1cf52' was properly closed.
+[0m23:38:18.035020 [debug] [MainThread]: Connection 'test.spacex_analytics.source_unique_spacex_raw_silver_launches_launch_id.6371c99680' was properly closed.
+[0m23:38:18.035687 [debug] [MainThread]: Connection 'test.spacex_analytics.source_unique_spacex_raw_silver_rockets_rocket_id.923544ec4c' was properly closed.
+[0m23:38:18.036535 [info ] [MainThread]: 
+[0m23:38:18.037384 [info ] [MainThread]: Finished running 4 data tests in 0 hours 0 minutes and 0.47 seconds (0.47s).
+[0m23:38:18.041373 [debug] [MainThread]: Command end result
+[0m23:38:18.093900 [debug] [MainThread]: Wrote artifact WritableManifest to /app/dbt/target/manifest.json
+[0m23:38:18.100457 [debug] [MainThread]: Wrote artifact SemanticManifest to /app/dbt/target/semantic_manifest.json
+[0m23:38:18.117809 [debug] [MainThread]: Wrote artifact RunExecutionResult to /app/dbt/target/run_results.json
+[0m23:38:18.118625 [info ] [MainThread]: 
+[0m23:38:18.119370 [info ] [MainThread]: [32mCompleted successfully[0m
+[0m23:38:18.119979 [info ] [MainThread]: 
+[0m23:38:18.120635 [info ] [MainThread]: Done. PASS=4 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=4
+[0m23:38:18.122729 [debug] [MainThread]: Resource report: {"command_name": "test", "command_success": true, "command_wall_clock_time": 2.473639, "process_in_blocks": "0", "process_kernel_time": 0.982753, "process_mem_max_rss": "161940", "process_out_blocks": "0", "process_user_time": 8.123263}
+[0m23:38:18.124722 [debug] [MainThread]: Command `dbt test` succeeded at 23:38:18.124408 after 2.48 seconds
+[0m23:38:18.125602 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2effb7860>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2f482ac00>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x73c2f482ac30>]}
+[0m23:38:18.126288 [debug] [MainThread]: Flushing usage events
+[0m23:38:18.968837 [debug] [MainThread]: An error was encountered while trying to flush usage events
