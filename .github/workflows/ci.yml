@@ -4,13 +4,13 @@ on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
+  # --- CI: Lint, Unit & Integration Tests ---
   quality-and-test:
     runs-on: ubuntu-latest
     services:
-      # Sobe um Postgres real para os testes de integração (Integration Tests)
       postgres:
         image: postgres:16-alpine
         env:
@@ -20,7 +20,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -28,21 +28,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install 'uv' and Dependencies
+      - name: Install Dependencies
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          uv pip install --system .
-          uv pip install --system pytest pytest-mock pytest-cov ruff
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Lint with Ruff (Static Analysis)
+      - name: Lint with Ruff
         run: ruff check src/
 
-      - name: Run Unit & Integration Tests
+      - name: Run Tests with Coverage
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
@@ -53,20 +52,27 @@ jobs:
           pytest --cov=src tests/ -v
 
       - name: Build Docker Image (Dry Run)
-        run: |
-          docker build -t spacex-pipeline:test .
+        run: docker build -t spacex-pipeline:test .
 
-  # Job de Deploy (Opcional - Exemplo para Prefect Cloud)
+  # --- CD: Deploy to Prefect Cloud ---
   deploy:
     needs: quality-and-test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to Prefect Cloud
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Prefect
+        run: pip install prefect
+
+      - name: Deploy Flow to Prefect Cloud
         env:
           PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
           PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
         run: |
-          pip install prefect
           prefect deploy src/flows/etl_flow.py:spacex_main_pipeline -n prod-deployment
