@@ -27,3 +27,6 @@ Thumbs.db
 
 # --- Prefect ---
 .prefect/
+
+
+.test.ipynb

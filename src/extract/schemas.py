@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional
 
 class BaseAPISchema(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="ignore")

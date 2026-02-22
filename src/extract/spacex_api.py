@@ -1,6 +1,6 @@
 import requests
 import structlog
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 

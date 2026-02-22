@@ -1,6 +1,6 @@
 import polars as pl
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict
 
 @dataclass
 class EntitySchema:
