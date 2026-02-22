@@ -1,38 +1,29 @@
-# --- Security (Secrets) ---
+# --- Security ---
 .env
-*.env
-secrets.json
+*.pem
+*.key
 
-# --- Virtual Environments ---
-.venv/
-venv/
-env/
-bin/
-lib/
-share/
-pyvenv.cfg
-
-# --- Python & Cache ---
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
+.env/
+venv/
 .pytest_cache/
 .ruff_cache/
-.ipynb_checkpoints/
 
-# --- Local Database (Persistent Docker) ---
-# If you use local volumes outside managed Docker
-postgres_data/
-*.sql
-*.sqlite
+# --- dbt ---
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt_modules/
 
-# --- IDEs & OS ---
-.vscode/
-.idea/
+# --- Logs & OS ---
+logs/
+*.log
 .DS_Store
 Thumbs.db
 
-# --- Project Metadata ---
-dist/
-build/
-*.egg-info/
+# --- Prefect ---
+.prefect/

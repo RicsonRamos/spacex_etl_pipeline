@@ -1,199 +1,94 @@
-# SpaceX ETL Pipeline
 
-[![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/)
-[![Prefect](https://img.shields.io/badge/prefect-2.0-orange)](https://www.prefect.io/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+# 🚀 SpaceX Medallion ETL Pipeline
 
----
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Prefect](https://img.shields.io/badge/prefect-3.0-orange)
+![Postgres](https://img.shields.io/badge/postgres-16-blue)
+![Docker](https://img.shields.io/badge/docker-ready-brightgreen)
+![Ruff](https://img.shields.io/badge/linter-ruff-000000)
 
-## Overview
+Pipeline de dados de nível empresarial estruturado sob a arquitetura **Medallion**, projetado para extrair, transformar e carregar dados da API da SpaceX com foco em performance, tipagem rigorosa e observabilidade.
 
-This repository contains a **modular ETL pipeline** that extracts SpaceX data from the public API, transforms it using **Polars**, and loads it into **PostgreSQL**. The pipeline is orchestrated with **Prefect**, enabling retries, logging, and cloud monitoring.  
 
-It is designed for **scalable, maintainable, and testable** data ingestion workflows, suitable for production-ready ETL systems.
 
----
+## 🏗️ Arquitetura e Decisões Técnicas
 
-## Architecture
-
-### ETL Workflow
-
-```mermaid
-graph TD
-    A[SpaceX API] --> B[Extract - Polars]
-    B --> C[Transform - Polars]
-    C --> D[Load - PostgreSQL]
-    D --> E[Prefect Cloud Monitoring]
-```
----
-
-### Dependencies
-
-```mermaid
-graph LR
-    Python --> Polars
-    Python --> SQLAlchemy
-    SQLAlchemy --> PostgreSQL
-    Prefect --> Python
-    Prefect --> PostgreSQL
-```
+| Componente | Tecnologia | Justificativa Analítica |
+| :--- | :--- | :--- |
+| **Engine de Dados** | **Polars** | Processamento multi-threaded em Rust; superior ao Pandas em eficiência de memória. |
+| **Orquestração** | **Prefect 3.0** | Gerenciamento de estado, retentativas automáticas e observabilidade nativa. |
+| **Modelagem** | **dbt (Postgres)** | Transformações SQL modulares com testes de integridade e linhagem automática. |
+| **Validação** | **Pydantic V2** | Garantia de contrato de dados (Data Contracts) na entrada da API. |
+| **Infraestrutura** | **Docker** | Isolamento completo e reprodutibilidade via multi-stage builds. |
 
 ---
 
-### Database Model - ER Diagram
+## 📊 Estrutura de Camadas (Medallion)
 
-```mermaid
-erDiagram
-    ROCKETS {
-        int id PK
-        string name
-    }
-    LAUNCHES {
-        int id PK
-        int rocket_id FK
-        date launch_date
-    }
-    MISSIONS {
-        int id PK
-        int launch_id FK
-        string name
-    }
-    ROCKETS ||--o{ LAUNCHES : has
-    LAUNCHES ||--o{ MISSIONS : contains
-```
+### 1. Bronze (Raw)
+- **Origem:** REST API SpaceX.
+- **Processo:** Extração via `SpaceXExtractor` com validação de schema Pydantic.
+- **Armazenamento:** Tabelas Postgres com coluna `raw_data` (JSONB) para garantir rastreabilidade total.
+
+### 2. Silver (Cleansed)
+- **Processo:** Limpeza, normalização e deduplicação via `SpaceXTransformer` (Polars).
+- **Lógica de Carga:** Operações de **Upsert (Merge)** para garantir idempotência técnica e integridade.
+
+### 3. Gold (Curated)
+- **Processo:** Modelagem analítica via **dbt**.
+- **Resultado:** Tabelas `fct_launches` e `dim_rockets` otimizadas para consumo em ferramentas de BI.
+
+
 
 ---
 
-### Prefect Orchestration Flow
+## 📈 KPIs e Métricas de Sucesso
 
-```mermaid
-graph TD
-    A[ETL Deployment] --> B[Extract Task]
-    B --> C[Transform Task]
-    C --> D[Load Task]
-    D --> E[Retries and Alerts]
-    E --> F[Prefect Cloud UI]
-```
+### Engenharia (Data Reliability)
+- **Pipeline Latency:** Tempo total de execução do Flow (Target: < 5 min).
+- **Data Freshness:** Idade do dado na camada Gold em relação ao evento real na API.
+- **Build Speed:** Tempo de build Docker otimizado via `uv` e cache de camadas.
 
----
-
-## Features
-
-* **Extract:** Fetches raw SpaceX API data using Polars for high-performance ingestion.
-* **Transform:** Cleans and normalizes raw data into structured tables.
-* **Load:** Inserts transformed data into PostgreSQL with transactional safety.
-* **Orchestration:** Prefect provides task retries, logging, and cloud monitoring.
-* **Testing:** Pytest integration ensures database connectivity, API availability, and data correctness.
-* **Configurable:** Environment variables control database credentials and Prefect API keys.
+### Negócio (Insights)
+- **Launch Success Rate:** Taxa de sucesso por modelo de foguete e local de lançamento.
+- **Cost Analysis:** Custo acumulado por missão e eficiência financeira da frota.
 
 ---
 
-## Getting Started
+## 🚀 Como Rodar
 
-### Requirements
+### Configuração de Ambiente
+1. Clone o repositório:
+   ```bash
+   git clone [https://github.com/seu-usuario/spacex-etl.git](https://github.com/seu-usuario/spacex-etl.git)
+   cd spacex-etl
 
-* Python 3.11+
-* PostgreSQL 15+
-* Prefect Cloud account optional but recommended
-* Git
+ * Configure as variáveis de ambiente:
+   cp .env.example .env
+# Edite o .env com suas credenciais do Postgres e Prefect API
 
-### Installation
+Execução via Docker
+O projeto está totalmente conteinerizado para garantir paridade entre ambientes:
+docker-compose up --build
 
-```bash
-git clone https://github.com/RicsonRamos/spacex_etl_pipeline.git
-cd spacex_etl_pipeline
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+Execução Manual
+# Instalar dependências ultrarrápidas via uv
+uv pip install -e .
 
-### Configuration
+# Rodar ETL Completo
+python main.py
 
-Create a `.env` file:
+# Rodar com Carga Incremental
+python main.py --incremental
 
-```env
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=admin
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=spacex_db
+🧪 Qualidade e Testes
+A suíte de testes utiliza pytest e testcontainers para validar o pipeline em condições reais de banco de dados.
+# Rodar todos os testes com relatório de cobertura
+pytest --cov=src tests/ -v
 
-PREFECT_API_KEY=your_prefect_api_key
-PREFECT_API_URL=your_prefect_api_url
-DATABASE_URL=postgresql://postgres:admin@localhost:5432/spacex_db
-```
+ * Unit Tests: Validação de lógica de transformação e contratos Pydantic.
+ * Integration Tests: Validação de persistência e Upsert no Postgres usando containers efêmeros.
+ * Schema Tests: Testes dbt para garantir unicidade e integridade referencial.
 
----
-
-## Running the ETL
-
-**Locally**
-
-```bash
-python -m src.main
-```
-
-**Using Prefect Cloud**
-
-```bash
-prefect deployment apply deployments/etl_deployment.yaml
-prefect flow run spacex_etl_pipeline
-```
-
----
-
-## Testing
-
-```bash
-pytest tests/ -v --maxfail=1 --disable-warnings
-```
-
-* Ensures database connection, API availability, and data consistency.
-* Can be integrated into CI/CD pipelines.
-
----
-
-## Project Structure
-
-```
-spacex_etl_pipeline/
-├─ src/
-│  ├─ extract.py
-│  ├─ transform.py
-│  ├─ load.py
-│  ├─ main.py
-│  └─ settings.py
-├─ tests/
-├─ requirements.txt
-├─ pyproject.toml
-└─ README.md
-```
-
----
-
-## Contributing
-
-* Fork the repository
-* Create a feature branch
-* Add tests for new features
-* Submit a pull request
-
----
-
-## License
-
-This project is licensed under the MIT License. See LICENSE for details.
-
----
-
-## References
-
-* https://github.com/r-spacex/SpaceX-API
-* https://www.pola.rs/
-* https://www.sqlalchemy.org/
-* https://www.prefect.io/
-
----
-
-Developed by Ricson Ramos  
-Data Analyst and Software Engineer
+Desenvolvido por: [Ricson Ramos]
+Status: Produção / Estável ✅

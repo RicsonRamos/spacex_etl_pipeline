@@ -1,49 +1,24 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, List
 
+class BaseAPISchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
 
-class RocketSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    rocket_id: str = Field(..., alias="id")
+class RocketAPI(BaseAPISchema):
+    id: str
     name: str
-    type: str
     active: bool
+    cost_per_launch: Optional[int] = None
+    success_rate_pct: Optional[float] = None 
 
-
-class LaunchSchema(BaseModel):
-    """Strict schema for Launches."""
-
-    model_config = ConfigDict(
-        from_attributes=True,
-        populate_by_name=True
-    )
-
-    launch_id: str = Field(..., alias="id")
+class LaunchAPI(BaseAPISchema):
+    id: str
     name: str
-    date_utc: datetime
+    date_utc: str
     success: Optional[bool] = None
-    flight_number: int
     rocket: str
-    launchpad: str
 
-    @property
-    def launch_year(self) -> int:
-        return self.date_utc.year
-
-
-class LaunchpadSchema(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    launchpad_id: str = Field(..., alias="id")
-    name: str
-    locality: str
-    region: str
-
-ENDPOINT_SCHEMAS = {
-    "rockets": RocketSchema,
-    "launches": LaunchSchema,
-    "launchpads": LaunchpadSchema,
-    # Adicione outros se houver
+API_SCHEMAS = {
+    "rockets": RocketAPI,
+    "launches": LaunchAPI
 }

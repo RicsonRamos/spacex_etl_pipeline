@@ -1,54 +1,24 @@
 import pytest
-import sqlalchemy
-from sqlalchemy import create_engine, text
-from src.database.models import Base
-from src.config.settings import settings
-from src.load.loader import PostgresLoader # Importe seu loader real
+import polars as pl
 
-@pytest.fixture(scope="session")
-def engine():
-    engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
-    yield engine
-    engine.dispose()
+@pytest.fixture
+def sample_raw_launch():
+    """Simula um retorno real da API SpaceX."""
+    return {
+        "id": "5eb87cd9ffd86e000604b32a",
+        "name": "FalconSat",
+        "date_utc": "2006-03-24T22:30:00.000Z",
+        "success": False,
+        "rocket": "5e9d0d95eda69955f709d1eb"
+    }
 
-@pytest.fixture(scope="function")
-def db_connection(engine):
-    """
-    Fixture que provê o objeto loader e limpa o banco.
-    Substitui a necessidade de criar loader manualmente nos testes.
-    """
-    _force_cleanup(engine)
-    Base.metadata.create_all(engine)
-    
-    loader = PostgresLoader() # Certifique-se de que ele usa o mesmo engine/settings
-    yield loader
-    
-    _force_cleanup(engine)
-
-def _force_cleanup(engine):
-    """
-    Remove objetos de forma atômica.
-    """
-    sync_statements = [
-        "DROP VIEW IF EXISTS gold_cost_efficiency_metrics CASCADE",
-        "DROP TABLE IF EXISTS silver_payloads CASCADE",
-        "DROP TABLE IF EXISTS silver_launches CASCADE",
-        "DROP TABLE IF EXISTS silver_rockets CASCADE",
-        "DROP TABLE IF EXISTS silver_launchpads CASCADE",
-        "DROP TABLE IF EXISTS etl_metrics CASCADE",
-        "DROP TABLE IF EXISTS bronze_rockets CASCADE",
-        "DROP TABLE IF EXISTS bronze_launches CASCADE",
-        "DROP TABLE IF EXISTS bronze_payloads CASCADE",
-        "DROP TABLE IF EXISTS bronze_launchpads CASCADE"
-    ]
-    
-    # RIGOR: Cada comando em uma transação separada para evitar aborto em cadeia
-    for stmt in sync_statements:
-        with engine.connect() as conn:
-            try:
-                conn.execute(text("COMMIT")) # Garante que não há transação pendente
-                conn.execute(text(stmt))
-                conn.execute(text("COMMIT"))
-            except Exception:
-                # Se não puder dropar (ex: lock), passamos para o próximo
-                continue
+@pytest.fixture
+def sample_silver_df():
+    """Simula um DataFrame do Polars já processado."""
+    return pl.DataFrame({
+        "launch_id": ["1"],
+        "name": ["Test Launch"],
+        "date_utc": ["2026-01-01T00:00:00Z"],
+        "success": [True],
+        "rocket": ["rocket_id_123"]
+    })

@@ -1,0 +1,21 @@
+name: 'spacex_analytics'
+version: '1.0.0'
+config-version: 2
+
+# O perfil de conexão definido no profiles.yml
+profile: 'spacex_profile'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+models:
+  spacex_analytics:
+    # Camada Staging: Apenas limpeza e renomeação (Views)
+    staging:
+      +materialized: view
+    # Camada Marts: Dados prontos para BI (Tabelas)
+    marts:
+      +materialized: table

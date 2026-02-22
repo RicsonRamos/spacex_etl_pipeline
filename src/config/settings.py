@@ -3,35 +3,32 @@ from pydantic import Field, computed_field
 from typing import Optional
 
 class Settings(BaseSettings):
-    """
-    Configuração centralizada usando Pydantic V2.
-    O Pydantic lê automaticamente as variáveis do ambiente ou do arquivo .env.
-    """
-    # Configuração da API do SpaceX
+    """Gestão de configuração centralizada e tipada."""
+
+    # API SpaceX
     SPACEX_API_URL: str = "https://api.spacexdata.com/v4"
-    RETRIES: int = 3
-    TIMEOUT: int = 10
+    API_RETRIES: int = Field(default=3, ge=1)
+    API_TIMEOUT: int = Field(default=30, ge=1)
 
-    # Configuração do banco de dados PostgreSQL
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "admin"
-    POSTGRES_HOST: str = "localhost"
+    # Database
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_HOST: str
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str = "spacex_db"
+    POSTGRES_DB: str
 
-    # Configurações de Operação
-    LOG_LEVEL: str = "INFO" # Agora declarado corretamente como campo do Pydantic
-    
-    # Alertas e Integrações
+    # Monitoramento
     SLACK_WEBHOOK_URL: Optional[str] = None
-    PREFECT_API_KEY: Optional[str] = None
 
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
-        """Constrói a URL de conexão de forma dinâmica e validada."""
+        """
+        URL de conexão formatada para SQLAlchemy 2.0.
+        Utiliza o driver Psycopg 3 (moderno/assíncrono).
+        """
         return (
-            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+            f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
             f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
@@ -41,5 +38,4 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-# Instância única para exportação
 settings = Settings()

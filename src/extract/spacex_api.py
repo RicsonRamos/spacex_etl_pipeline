@@ -1,88 +1,71 @@
 import requests
 import structlog
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from pydantic import ValidationError
+from urllib3.util import Retry
 
-from src.extract.schemas import ENDPOINT_SCHEMAS
+from src.extract.schemas import API_SCHEMAS
 from src.config.settings import settings
 
 logger = structlog.get_logger()
 
 class SpaceXExtractor:
-    """
-    Singleton class responsible for extracting data from the SpaceX API.
-    """
+    """Classe responsável pela comunicação bruta e validação de contrato com a API."""
+
     def __init__(self):
-        """
-        Initialize the extractor with the base URL and a session.
-        """ 
-        #loader.ensure_tables()
-        self.base_url = settings.SPACEX_API_URL
-        self.session = self._build_session()
-    
-    def _build_session(self) -> requests.Session:
-        """
-        Build a session with a custom retry strategy.
-        """
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=settings.RETRIES,
+        self.session = requests.Session()
+        self.timeout = settings.API_TIMEOUT
+        
+        # Configuração de Retentativas (Exponential Backoff)
+        retries = Retry(
+            total=settings.API_RETRIES,
             backoff_factor=1,
-            status_forcelist=[500, 502, 503, 504],
+            status_forcelist=[500, 502, 503, 504]
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        return session
-    
-    def fetch_data(self, endpoint: str) -> List[Dict[str, Any]]:
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    def fetch(self, endpoint: str) -> List[Dict[str, Any]]:
         """
-        Fetch data from the specified endpoint.
+        Busca dados da API e aplica validação via Pydantic Schemas.
+        Qualquer erro de conexão interrompe o pipeline (Fail-Fast).
         """
-        url = f"{self.base_url}/{endpoint}"
-        log = logger.bind(endpoint=endpoint, url=url)
+        url = f"{settings.SPACEX_API_URL}/{endpoint}"
+        schema = API_SCHEMAS.get(endpoint)
+
+        logger.info("Iniciando extração de API", endpoint=endpoint, url=url)
 
         try:
-            # Initialize the request
-            log.info('Initialize request')
-            response = self.session.get(url, timeout=settings.TIMEOUT)
+            response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
-
-            # Parse the response
             data = response.json()
-
-            # Log the successful request
-            log.info('Request successful', count=len(data))
-
-            # Validate the data using the associated schema
-            schema = ENDPOINT_SCHEMAS.get(endpoint)
-            if schema:
-                try:
-                    # Validate each item in the data
-                    validated_data = [schema(**item).model_dump() for item in data]
-                    log.info('Data validation successful')
-                    return validated_data
-                except ValidationError as ve:
-                    # Log the validation error
-                    log.error("Data validation failed", error=ve.errors())
-                    raise 
-            # Return the data as is if no schema is associated
-            return data
-
-        except requests.exceptions.HTTPError as e:
-            # Log the request failure
-            log.error("Request failed", error=str(e), status_code=response.status_code)
-            raise 
-        except requests.exceptions.Timeout as e:
-            # Log the request timeout
-            log.error("Request timed out", error=str(e))
-            raise 
-        except Exception as e:
-            # Log any unexpected error
-            log.error("An unexpected error occurred", error=str(e))
+        except requests.RequestException as e:
+            logger.error("Erro crítico na requisição HTTP", endpoint=endpoint, error=str(e))
             raise
 
-# Singleton instanciado corretamente
-spacex_client = SpaceXExtractor()
+        if not schema:
+            logger.warning("Schema não mapeado para este endpoint", endpoint=endpoint)
+            return data
+
+        # Validação e Parsing
+        validated_data = []
+        errors_count = 0
+
+        for item in data:
+            try:
+                # Validação Pydantic (extra="ignore" já garante limpeza)
+                obj = schema(**item)
+                validated_data.append(obj.model_dump())
+            except Exception as e:
+                errors_count += 1
+                # Registramos o erro mas mantemos o pipeline rodando para os dados válidos
+                logger.debug("Falha na validação de registro individual", 
+                             endpoint=endpoint, record_id=item.get("id"), error=str(e))
+
+        if errors_count > 0:
+            logger.warning("Extração finalizada com registros corrompidos", 
+                           endpoint=endpoint, valid=len(validated_data), skipped=errors_count)
+        else:
+            logger.info("Extração concluída com sucesso", 
+                        endpoint=endpoint, count=len(validated_data))
+
+        return validated_data
