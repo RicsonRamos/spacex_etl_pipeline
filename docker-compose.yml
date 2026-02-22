@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -9,14 +7,13 @@ services:
     networks:
       - private_network
     healthcheck:
-      # Corrigido escape do $ para variáveis de ambiente do shell do postgres
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-spacex_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
     logging:
       driver: "json-file"
       options:
@@ -25,7 +22,7 @@ services:
   etl_app:
     build: 
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile  
     container_name: spacex_pipeline
     depends_on:
       db:
@@ -38,16 +35,19 @@ services:
     networks:
       - private_network
     volumes:
+      - .:/app
       - etl_logs:/app/logs
     restart: on-failure
-    # Comando corrigido para rodar como módulo e respeitar o loop de 1h
-    command: >
-      sh -c "
-      while true; do
-        python -m src.flows.etl_flow;
-        echo 'Ciclo finalizado. Aguardando 1 hora...';
-        sleep 3600;
-      done"
+    
+    command: 
+      - sh
+      - -c
+      - |
+        while true; do
+          python -m src.flows.etl_flow
+          echo "Ciclo finalizado. Aguardando 1 hora..."
+          sleep 3600
+        done
 
 networks:
   private_network:

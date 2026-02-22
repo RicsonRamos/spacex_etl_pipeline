@@ -3,17 +3,14 @@ from prefect import flow, task
 from prefect.task_runners import ConcurrentTaskRunner
 
 from src.extract.spacex_api import SpaceXExtractor
-from src.extract.transformer import SpaceXTransformer  # Ajustado path
-from src.load.postgres_loader import PostgresLoader     # Ajustado path
-from src.utils.monitoring import (
-    EXTRACT_COUNT, 
-    SILVER_COUNT, 
-    start_metrics_server, 
-    slack_notify
-)
+from src.transform.transformer import SpaceXTransformer  
+from src.load.loader import PostgresLoader 
+from src.utils.monitoring import EXTRACT_COUNT, SILVER_COUNT, start_metrics_server, slack_notify
 from src.utils.dbt_tools import run_dbt
+from datetime import timezone
 
 logger = structlog.get_logger()
+
 
 @task(
     retries=3, 
@@ -22,72 +19,81 @@ logger = structlog.get_logger()
     tags=["spacex-ingestion"]
 )
 def process_entity_task(endpoint: str):
+    """ETL completo de uma entidade SpaceX (Bronze → Transform → Silver)"""
+    
     extractor = SpaceXExtractor()
     transformer = SpaceXTransformer()
     loader = PostgresLoader()
 
     try:
-        # 0. PRE-FLIGHT CHECK
+        # Pre-flight: valida schema
         loader.validate_and_align_schema(endpoint)
 
-        # 1. WATERMARK (Marca d'água para carga incremental)
-        # O Registry define a tabela silver correta para cada entidade
+        # Marca d'água para carga incremental
         from src.config.schema_registry import SCHEMA_REGISTRY
         schema_cfg = SCHEMA_REGISTRY.get(endpoint)
         last_date = loader.get_last_ingested(schema_cfg.silver_table)
+        if last_date.tzinfo is None:
+            last_date = last_date.replace(tzinfo=timezone.utc)
 
-        # 2. EXTRAÇÃO (Focada em Contrato e Volume)
-        raw_data = extractor.fetch(endpoint) 
+        # Extração de dados via API
+        raw_data = extractor.fetch(endpoint)
         EXTRACT_COUNT.labels(endpoint).inc(len(raw_data))
-
         if not raw_data:
             logger.info("API retornou dataset vazio", endpoint=endpoint)
-            return
+            return 0
 
-        # 3. CAMADA BRONZE (Audit Trail)
-        loader.load_bronze(raw_data, endpoint, source="spacex_api_v5")
+        # Persistência Bronze (raw JSONB + UTC)
+        loader.load_bronze(raw_data, entity=endpoint, source="spacex_api_v5")
 
-        # 4. TRANSFORMAÇÃO (Filtro incremental vetorizado com Polars)
-        df = transformer.transform(endpoint, raw_data, last_ingested=last_date)
-        
-        if df.is_empty():
-            logger.info("Nenhum registro novo detectado após transformação", endpoint=endpoint)
-            return
+        # Transformação Silver (UTC-aware)
+        df_silver = transformer.transform(endpoint, raw_data, last_ingested=last_date)
+        if df_silver.is_empty():
+            logger.info("Nenhum registro novo após transformação", endpoint=endpoint)
+            return 0
 
-        # 5. CAMADA SILVER (Upsert/Sincronização)
-        rows_upserted = loader.upsert_silver(df, endpoint)
+        # Upsert Silver
+        rows_upserted = loader.upsert_silver(df_silver, entity=endpoint)
         SILVER_COUNT.labels(endpoint).inc(rows_upserted)
+
+        logger.info(
+            "ETL concluído para entidade",
+            endpoint=endpoint,
+            rows_processed=rows_upserted
+        )
+        return rows_upserted
 
     except Exception as e:
         logger.error("Falha na task de entidade", endpoint=endpoint, error=str(e))
-        slack_notify(f"❌ Falha crítica no pipeline SpaceX: Entidade '{endpoint}'")
+        slack_notify(f"Falha crítica no pipeline SpaceX: Entidade '{endpoint}'")
         raise
+
 
 @flow(
     name="SpaceX Enterprise ETL",
     task_runner=ConcurrentTaskRunner(),
     description="Pipeline Medallion para extração e modelagem de dados da SpaceX"
 )
-def spacex_main_pipeline():
-    # Inicializa servidor de métricas Prometheus
+def spacex_main_pipeline(incremental: bool = False):
+    """Fluxo principal ETL SpaceX (Rockets → Launches → Gold/dbt)"""
+    
+    # Inicializa métricas Prometheus
     start_metrics_server(8000)
     
-    # Entidades registradas no SCHEMA_REGISTRY
-    entities = ["rockets", "launches"]
+    # Ingestão de dimensões base (Rockets)
+    logger.info("Iniciando ingestão de Rockets")
+    rocket_future = process_entity_task.submit("rockets")
+    rocket_future.wait()  # garante que FKs existam antes de launches
 
-    # Execução Paralela: Otimiza uso de I/O de rede e CPU
-    logger.info("Iniciando processamento paralelo de entidades")
-    futures = [process_entity_task.submit(entity) for entity in entities]
+    # Ingestão de fatos (Launches)
+    logger.info("Iniciando ingestão de Launches")
+    launch_future = process_entity_task.submit("launches")
+    launch_future.wait()
 
-    # BARREIRA DE SINCRONIZAÇÃO
-    # Aguarda todas as cargas Silver terminarem antes de iniciar a camada Gold
-    for f in futures:
-        f.wait()
-
-    # 6. CAMADA GOLD (dbt)
-    # Transforma tabelas Silver em Fatos e Dimensões
+    # Camada Gold (transformações analíticas via dbt)
     logger.info("Iniciando transformações analíticas (dbt)")
     run_dbt()
+
 
 if __name__ == "__main__":
     spacex_main_pipeline()

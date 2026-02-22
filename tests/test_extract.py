@@ -1,4 +1,4 @@
-from src.extract.extractor import SpaceXExtractor
+from src.extract.spacex_api import SpaceXExtractor
 
 def test_fetch_launches_api_error(mocker):
     # Mock da resposta de erro da API

@@ -1,6 +1,6 @@
 import structlog
 import argparse
-from src.flows.etl_flow import spacex_pipeline
+from src.flows.etl_flow import spacex_main_pipeline
 
 # Configuração básica de logs estruturados
 logger = structlog.get_logger()
@@ -13,8 +13,8 @@ def main(incremental: bool = False):
                 mode="incremental" if incremental else "full")
 
     try:
-        # IMPORTANTE: O Flow 'spacex_pipeline' deve aceitar o argumento 'incremental'
-        spacex_pipeline(incremental=incremental)
+        # IMPORTANTE: O Flow 'spacex_main_pipeline' deve aceitar o argumento 'incremental'
+        spacex_main_pipeline(incremental=incremental)
         
         logger.info("Pipeline finalizado com sucesso 🚀")
 

@@ -1,7 +1,7 @@
 import pytest
 from testcontainers.postgres import PostgresContainer
-from sqlalchemy import create_all_engines # ou seu método de conexão
-from src.load.postgres_loader import PostgresLoader
+from sqlalchemy import create_all_engines
+from src.load.loader import PostgresLoader
 import polars as pl
 
 @pytest.fixture(scope="module")

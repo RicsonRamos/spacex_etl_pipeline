@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from src.load.postgres_loader import PostgresLoader
+from src.load.loader import PostgresLoader
 
 def test_loader_schema_mismatch():
     # DataFrame com coluna faltando ou nome errado

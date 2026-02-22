@@ -19,9 +19,14 @@ SCHEMA_REGISTRY: Dict[str, EntitySchema] = {
         pk="launch_id",
         bronze_table="bronze_launches",
         silver_table="silver_launches",
-        rename={"id": "launch_id"},
-        columns=["launch_id", "name", "date_utc", "success", "rocket"],
-        casts={"date_utc": pl.Datetime, "success": pl.Boolean},
+        rename={"id": "launch_id"}, # API 'rocket' já mapeia para DB 'rocket'
+        columns=["launch_id", "name", "date_utc", "success", "rocket"], 
+        casts={
+            "date_utc": pl.Datetime, 
+            "success": pl.Boolean,
+            "name": pl.String,
+            "rocket": pl.String
+        },
         required=["launch_id", "rocket"]
     ),
     "rockets": EntitySchema(
@@ -31,7 +36,12 @@ SCHEMA_REGISTRY: Dict[str, EntitySchema] = {
         silver_table="silver_rockets",
         rename={"id": "rocket_id"},
         columns=["rocket_id", "name", "active", "cost_per_launch", "success_rate_pct"],
-        casts={"success_rate_pct": pl.Float64, "cost_per_launch": pl.Int64},
+        casts={
+            "success_rate_pct": pl.Float64, 
+            "cost_per_launch": pl.Int64,
+            "active": pl.Boolean,
+            "name": pl.String
+        },
         required=["rocket_id"]
     )
 }

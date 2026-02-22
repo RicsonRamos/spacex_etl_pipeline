@@ -1,12 +1,9 @@
-WITH source AS (
-    SELECT * FROM {{ source('spacex_raw', 'silver_launches') }}
-)
+{{ config(materialized='view') }}
 
 SELECT
-    launch_id,
+    launch_id::text AS launch_id,
     name AS launch_name,
     date_utc,
-    COALESCE(success, FALSE) AS is_success, -- Trata nulos como falha por padrão de negócio
-    rocket AS rocket_id,
-    NOW() AS stg_updated_at
-FROM source
+    success AS is_success,
+    rocket::text AS rocket_id
+FROM {{ source('spacex_raw', 'silver_launches') }}

@@ -22,5 +22,4 @@ logs/
 # Documentação e testes (opcional no container de produção)
 docs/
 tests/
-README.md
 docker-compose.yml

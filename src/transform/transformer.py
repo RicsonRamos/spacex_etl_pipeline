@@ -1,12 +1,15 @@
 import polars as pl
 import structlog
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from src.config.schema_registry import SCHEMA_REGISTRY
 
 logger = structlog.get_logger()
 
+
 class SpaceXTransformer:
+    """Transforma dados brutos da API SpaceX em formato Silver pronto para persistência."""
+
     def transform(
         self,
         endpoint: str,
@@ -18,41 +21,69 @@ class SpaceXTransformer:
 
         schema = SCHEMA_REGISTRY.get(endpoint)
         if not schema:
-            raise ValueError(f"Endpoint '{endpoint}' não mapeado.")
+            raise ValueError(f"Endpoint '{endpoint}' não mapeado no Registry.")
 
         try:
-            # 1. Criação otimizada do DataFrame
             df = pl.from_dicts(data)
 
-            # 2. FILTRO INCREMENTAL (Vetorizado no Polars)
-            # Aplicamos o filtro ANTES das transformações pesadas
-            if last_ingested and "date_utc" in df.columns:
-                df = df.with_columns(pl.col("date_utc").str.to_datetime())
-                df = df.filter(pl.col("date_utc") > last_ingested)
-                if df.is_empty():
-                    logger.info("Nenhum registro novo após filtro incremental", endpoint=endpoint)
-                    return df
-
-            # 3. RENAME
+            
+            # Renomeação imediata
+            
             if schema.rename:
                 rename_map = {k: v for k, v in schema.rename.items() if k in df.columns}
                 df = df.rename(rename_map)
 
-            # 4. CASTS & SELEÇÃO
+            
+            # Conversão de datas UTC
+            
+            date_col = "date_utc" if "date_utc" in df.columns else "ingested_at"
+            if date_col in df.columns and df.schema[date_col] == pl.String:
+                # Parse ISO 8601 com timezone explícito
+                df = df.with_columns(
+                    pl.col(date_col)
+                    .str.to_datetime(
+                        format="%Y-%m-%dT%H:%M:%S%.fZ",  # ISO 8601
+                        time_zone="UTC",                  # Garantia UTC
+                        strict=False
+                    )
+                    .cast(pl.Datetime("us", time_zone="UTC"))
+                    .alias(date_col)
+                )
+
+            
+            # Filtro incremental
+            
+            if last_ingested and date_col in df.columns:
+                # Garante que last_ingested seja UTC-aware
+                if last_ingested.tzinfo is None:
+                    last_ingested = last_ingested.replace(tzinfo=timezone.utc)
+                df = df.filter(pl.col(date_col) > last_ingested)
+
+            
+            # Casts & validação de colunas
+            
             for col, dtype in schema.casts.items():
                 if col in df.columns:
                     df = df.with_columns(pl.col(col).cast(dtype, strict=False))
 
-            # Seleciona apenas as colunas do contrato que de fato existem
-            df = df.select([c for c in schema.columns if c in df.columns])
+            missing = [c for c in schema.columns if c not in df.columns]
+            if missing:
+                raise ValueError(
+                    f"Divergência de Schema no endpoint '{endpoint}'. Colunas ausentes: {missing}"
+                )
 
-            # 5. DEDUPLICAÇÃO & QUALIDADE
-            df = df.unique(subset=[schema.pk])
+            df = df.select(schema.columns)
+
             
-            # Remove linhas onde a PK é nula (Garante integridade do Upsert)
-            df = df.filter(pl.col(schema.pk).is_not_null())
+            # Deduplicação
+            
+            df = df.unique(subset=[schema.pk]).filter(pl.col(schema.pk).is_not_null())
 
-            logger.info("Transformação concluída", endpoint=endpoint, rows=df.height)
+            logger.info(
+                "Transformação concluída",
+                endpoint=endpoint,
+                rows=df.height
+            )
             return df
 
         except Exception as e:

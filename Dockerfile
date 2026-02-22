@@ -1,48 +1,53 @@
-# Estágio 1: Builder (Compilação de dependências)
+# ---------------------------
+# Estágio 1: Builder
+# ---------------------------
 FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-# Instala ferramentas de compilação necessárias
+# Instala dependências de compilação para drivers de DB
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Instala o 'uv'
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Instala dependências no ambiente do sistema (dentro do container)
-COPY pyproject.toml .
-# Usamos --no-cache para garantir que a imagem final seja limpa
-RUN uv pip install --system --no-cache .
+# Instala dbt explicitamente se não estiver no pyproject.toml
+# Se estiver no pyproject.toml, o comando install . abaixo resolve.
+COPY pyproject.toml README.md ./
+COPY src/ src/
 
-# Estágio 2: Runtime (Imagem final leve)
+# Instala dependências no site-packages do sistema
+RUN uv pip install --system --no-cache . dbt-core dbt-postgres
+
+# ---------------------------
+# Estágio 2: Runtime
+# ---------------------------
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Dependência de runtime do Postgres (libpq é necessária para o psycopg2/psycopg)
+# git é necessário para 'dbt deps', libpq5 para o driver do Postgres
 RUN apt-get update && apt-get install -y \
     libpq5 \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia as bibliotecas instaladas do estágio builder
+# Copia o ambiente Python completo
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Variáveis de ambiente
+# Garante que o dbt esteja no PATH e configurado
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    PREFECT_LOGGING_TO_API_WHEN_MISSING_FLOW=ignore
+    DBT_PROFILES_DIR=/app/dbt \
+    DBT_PROJECT_DIR=/app/dbt
 
-# Copia o código da aplicação
+# Copia o projeto inteiro (incluindo a pasta dbt/ e models/)
 COPY . .
 
-# Se houver packages.yml, o dbt precisa baixar as dependências agora
-# RUN dbt deps --project-dir dbt/
-
-# Comando de entrada usando a chamada de módulo correta para evitar ImportError
+# Comando de entrada original (o loop while true está no docker-compose)
 CMD ["python", "-m", "src.flows.etl_flow"]

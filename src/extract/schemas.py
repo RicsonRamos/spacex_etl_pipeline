@@ -9,7 +9,7 @@ class RocketAPI(BaseAPISchema):
     name: str
     active: bool
     cost_per_launch: Optional[int] = None
-    success_rate_pct: Optional[float] = None # Corrigido: API envia floats
+    success_rate_pct: Optional[float] = None 
 
 class LaunchAPI(BaseAPISchema):
     id: str

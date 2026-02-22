@@ -17,13 +17,15 @@ dependencies = [
     "dbt-postgres>=1.7.0"
 ]
 
-[tool.uv]
-managed = true
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.0.0",
     "pytest-mock>=3.14.0",
     "ruff>=0.3.0"
 ]
+
+[tool.uv]
+managed = true
 
 [tool.ruff]
 line-length = 88
@@ -37,3 +39,6 @@ max-complexity = 10 # Garante que suas funções não virem "monstros" lógicos
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

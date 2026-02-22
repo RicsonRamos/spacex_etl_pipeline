@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     """Gestão de configuração centralizada e tipada."""
 
     # API SpaceX
-    SPACEX_API_URL: str = "https://api.spacexdata.com/v5"
+    SPACEX_API_URL: str = "https://api.spacexdata.com/v4"
     API_RETRIES: int = Field(default=3, ge=1)
     API_TIMEOUT: int = Field(default=30, ge=1)
 
