@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from src.extract.schemas import LaunchSchema # Assumindo que você usa este schema
+from src.extract.schemas import LaunchSchema
 
 def test_launch_schema_validation():
     # Dados válidos
