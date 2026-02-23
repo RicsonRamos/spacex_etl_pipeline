@@ -14,9 +14,9 @@ def test_launch_schema_validation():
     assert LaunchSchema(**valid_data)
 
 def test_launch_schema_invalid_types():
-    # Dado inválido (success deveria ser bool, mandamos string incompatível)
+    # Dado inválido 
     invalid_data = {
-        "id": 123, # Deveria ser string
+        "id": 123, 
         "name": "Falcon 1",
         "success": "not-a-boolean"
     }
