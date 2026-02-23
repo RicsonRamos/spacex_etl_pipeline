@@ -1,5 +1,4 @@
 import pytest
-import sqlalchemy
 from sqlalchemy import create_engine, text
 from src.database.models import Base
 from src.config.settings import settings

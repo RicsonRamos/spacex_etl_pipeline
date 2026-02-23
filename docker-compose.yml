@@ -26,7 +26,8 @@ services:
     env_file: .env
     environment:
       - PYTHONPATH=/app
-      - POSTGRES_HOST=db # Internal hostname within Docker network
+      - POSTGRES_HOST=db
+      - INSIDE_DOCKER=1
     networks:
       - frontend_network
       - backend_network
