@@ -1,7 +1,3 @@
-Aqui está uma versão revisada e profissional do seu `README.md` para o repositório:
-
----
-
 # 🚀 **SpaceX Medallion ETL Pipeline**
 
 ![Python](https://img.shields.io/badge/python-3.12-blue)
@@ -145,4 +141,3 @@ A suíte de testes utiliza **pytest** e **testcontainers** para validar o pipeli
 
 ---
 
-Com essas melhorias, o README reflete as melhores práticas para um projeto de engenharia de dados em produção, focando em **performance**, **qualidade** e **observabilidade**. O que acha dessa versão?
