@@ -92,4 +92,4 @@ jobs:
           pip install -e .[dev]
           pip install great_expectations
       - run: |
-          python -m src.etl.data_quality_check
+          python -m src.flows.data_quality_check

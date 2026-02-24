@@ -3,7 +3,7 @@ from pydantic import Field, computed_field
 from typing import Optional
 
 class Settings(BaseSettings):
-    """Gestão de configuração centralizada e tipada."""
+    """Gestão de configuração centralizada e tipada, pronta para ETL, logging e monitoramento."""
 
     # API SpaceX
     SPACEX_API_URL: str = "https://api.spacexdata.com/v4"
@@ -17,8 +17,15 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str
 
-    # Monitoramento
+    # Logging
+    LOG_LEVEL: str = "INFO"  # compatível com tests/test_logging.py
+
+    # Monitoramento / Alertas
     SLACK_WEBHOOK_URL: Optional[str] = None
+    PROMETHEUS_PORT: int = 8000  # porta default para métricas
+
+    # ETL / Batch
+    BATCH_SIZE: int = 1000
 
     @computed_field
     @property
@@ -38,4 +45,9 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-settings = Settings()
+def get_settings() -> Settings:
+    """
+    Retorna uma instância do Settings.
+    Use este getter em todo o projeto para manter consistência.
+    """
+    return Settings()

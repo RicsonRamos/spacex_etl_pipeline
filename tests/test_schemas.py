@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
-from src.extract.schemas import LaunchSchema
+from src.extract.schemas import LaunchAPI
+
 
 def test_launch_schema_validation():
-    # Dados válidos
     valid_data = {
         "id": "5eb87cd9ffd86e000604b32a",
         "name": "Falcon 1",
@@ -11,14 +11,17 @@ def test_launch_schema_validation():
         "success": False,
         "rocket": "5e9d0d95eda69955f709d1eb"
     }
-    assert LaunchSchema(**valid_data)
+
+    launch = LaunchAPI(**valid_data)
+    assert launch.id == "5eb87cd9ffd86e000604b32a"
+
 
 def test_launch_schema_invalid_types():
-    # Dado inválido 
     invalid_data = {
-        "id": 123, 
+        "id": 123,
         "name": "Falcon 1",
         "success": "not-a-boolean"
     }
+
     with pytest.raises(ValidationError):
-        LaunchSchema(**invalid_data)
+        LaunchAPI(**invalid_data)

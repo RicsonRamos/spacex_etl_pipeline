@@ -1,24 +1,47 @@
-import pytest
+import os
 import polars as pl
+import pytest
+from sqlalchemy import create_engine
+from src.load.loader import PostgresLoader
 
 @pytest.fixture
 def sample_raw_launch():
-    """Simula um retorno real da API SpaceX."""
     return {
-        "id": "5eb87cd9ffd86e000604b32a",
-        "name": "FalconSat",
-        "date_utc": "2006-03-24T22:30:00.000Z",
-        "success": False,
-        "rocket": "5e9d0d95eda69955f709d1eb"
+        "id": "1",
+        "name": "Falcon 9",
+        "date_utc": "2023-02-01T00:00:00Z",
+        "rocket": "falcon9",
+        "success": True
     }
+
 
 @pytest.fixture
 def sample_silver_df():
-    """Simula um DataFrame do Polars já processado."""
     return pl.DataFrame({
-        "launch_id": ["1"],
+        "id": ["1"],
         "name": ["Test Launch"],
-        "date_utc": ["2026-01-01T00:00:00Z"],
-        "success": [True],
-        "rocket": ["rocket_id_123"]
+        "date_utc": ["2023-02-01T00:00:00Z"],
+        "rocket": ["falcon9"]
     })
+
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_env():
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+    os.environ["POSTGRES_HOST"] = "localhost"
+    os.environ["POSTGRES_PORT"] = "5432"
+    os.environ["POSTGRES_USER"] = "postgres"
+    os.environ["POSTGRES_PASSWORD"] = "postgres"
+    os.environ["POSTGRES_DB"] = "test_db"
+
+
+@pytest.fixture(scope="session")
+def engine():
+    engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture(scope="function")
+def loader(engine):
+    return PostgresLoader(connection_string=os.environ["DATABASE_URL"])

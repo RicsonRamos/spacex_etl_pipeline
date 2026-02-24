@@ -1,9 +1,9 @@
-import polar as pl 
+import polars as pl 
 
 def validate_schema(df: pl.DataFrame, expected_columns: list[str]):
   missing = [c for c in expected_columns if c not in df.columns]
   if missing:
-    return ValueErro(f'Missing columns, {missing}')
+    return ValueError(f'Missing columns, {missing}')
 
 def check_nulls(df: pl.DataFrame, columns: list[str]):
     for col in columns:

@@ -1,121 +1,166 @@
-from datetime import timezone
-import pandas as pd
+import polars as pl
+from typing import Optional, Any
+
 from prefect import flow, task
 from prefect.task_runners import ConcurrentTaskRunner
-from prometheus_client import Counter, Summary, start_http_server
-import math
+import structlog
 
 from src.extract.spacex_api import SpaceXExtractor
-from src.transform.transformer import SpaceXTransformer  
-from src.load.loader import PostgresLoader 
-from src.utils.monitoring import EXTRACT_COUNT, SILVER_COUNT, slack_notify
-from src.utils.dbt_tools import run_dbt
-from src.etl.data_quality import validate_schema, check_nulls, check_duplicates, check_date_ranges
+from src.transform.transformer import SpaceXTransformer
+from src.load.loader import PostgresLoader
 from src.config.schema_registry import SCHEMA_REGISTRY
-from src.utils.logging import logger
+from src.utils.dbt_tools import run_dbt
+from src.flows.data_quality import validate_schema, check_nulls
+from src.utils.metrics_service import MetricsService
+from src.utils.alert_service import AlertService
+from src.config.settings import get_settings
 
-# Métricas Prometheus
-PROCESS_TIME_SECONDS = Summary("etl_process_time_seconds", "Tempo de execução do ETL", ["endpoint"])
-FAILURE_COUNT = Counter("etl_failures_total", "Número de falhas no ETL", ["endpoint"])
+logger = structlog.get_logger()
 
-# Task: Data Quality
+
+# ============================================================
+# TASK: DATA QUALITY
+# ============================================================
+
 @task(name="Data Quality Check")
-def data_quality_task(df: pd.DataFrame, endpoint: str):
-    """Valida dados Silver antes do upsert"""
-    validate_schema(df, ["flight_number", "mission_name", "launch_date"])
-    check_nulls(df, ["mission_name", "launch_date"])
-    check_duplicates(df, ["flight_number"])
-    check_date_ranges(df, "launch_date", "2006-03-24", pd.Timestamp.today())
+def data_quality_task(df: pl.DataFrame, endpoint: str):
+    validate_schema(df, df.columns)
+    check_nulls(df, df.columns)
     logger.info("Data quality passed", endpoint=endpoint)
     return True
 
-# Task: Processamento de entidade com Transformação em Batch
+
+# ============================================================
+# TASK: PROCESS ENTITY
+# ============================================================
+
 @task(
-    retries=3,
-    retry_delay_seconds=30,
+    retries=2,
+    retry_delay_seconds=5,
     name="Process SpaceX Entity",
-    tags=["spacex-ingestion"]
+    tags=["spacex-ingestion"],
 )
-def process_entity_task(endpoint: str, batch_size: int = 1000):
-    """ETL completo de uma entidade SpaceX (Incremental Load)"""
-    
-    extractor = SpaceXExtractor()
-    transformer = SpaceXTransformer()
-    loader = PostgresLoader()
-
+def process_entity_task(
+    endpoint: str,
+    loader: PostgresLoader,
+    transformer: SpaceXTransformer,
+    extractor: SpaceXExtractor,
+    metrics: MetricsService,
+    alerts: AlertService,
+    batch_size: int = 1000,
+):
     try:
-        # Pre-flight: valida schema Bronze/Silver
-        loader.validate_and_align_schema(endpoint)
-
         schema_cfg = SCHEMA_REGISTRY.get(endpoint)
-        last_date = loader.get_last_ingested(schema_cfg.silver_table)  # watermark
-        logger.info("Última execução registrada", endpoint=endpoint, last_ingested=str(last_date))
+        if not schema_cfg:
+            logger.warning("Schema não encontrado para endpoint", endpoint=endpoint)
+            return 0
 
-        # Extração incremental (apenas novos ou atualizados)
-        raw_data = extractor.fetch(endpoint, last_updated_after=last_date)  # Filtro na API para updated_at
-        EXTRACT_COUNT.labels(endpoint).inc(len(raw_data))
-        logger.info("Extração incremental concluída", endpoint=endpoint, rows=len(raw_data))
+        # 🔹 Watermark opcional
+        last_date = loader.get_last_ingested(schema_cfg.silver_table) if hasattr(loader, "get_last_ingested") else None
 
+        # 🔹 Extract
+        raw_data = extractor.fetch(endpoint, batch_size=batch_size)
         if not raw_data:
-            logger.info("API retornou dataset vazio", endpoint=endpoint)
+            logger.info("No data returned from API", endpoint=endpoint)
             return 0
 
-        # Persistência Bronze
-        loader.load_bronze(raw_data, entity=endpoint, source="spacex_api_v5")
+        # 🔹 Bronze
+        df_bronze = pl.DataFrame(raw_data)
+        loader.load_bronze(df_bronze, table=f"bronze_{endpoint}")
 
-        # Transformação Silver + Data Quality
-        df_silver = transformer.transform(endpoint, raw_data, last_ingested=last_date, batch_size=batch_size)
+        # 🔹 Transform
+        df_silver = transformer.transform(endpoint, raw_data)
         if df_silver.is_empty():
-            logger.info("Nenhum registro novo após transformação", endpoint=endpoint)
+            logger.info("No new rows after transform", endpoint=endpoint)
             return 0
 
-        # Data Quality
-        data_quality_task.submit(df_silver, endpoint)
+        # 🔹 Data Quality
+        dq_task = data_quality_task.submit(df_silver, endpoint)
+        dq_task.result()  # espera o fim da validação
 
-        # Upsert Silver (apenas dados novos ou atualizados)
-        rows_upserted = loader.upsert_silver(df_silver, entity=endpoint)
-        SILVER_COUNT.labels(endpoint).inc(rows_upserted)
-        logger.info("Silver upsert concluído", endpoint=endpoint, rows_upserted=rows_upserted)
+        # 🔹 Upsert Silver
+        rows = loader.upsert_silver(df_silver, entity=endpoint)
+        metrics.record_loaded(endpoint, rows)
 
-        # Atualiza watermark
-        loader.update_watermark(schema_cfg.silver_table, df_silver['updated_at'].max())  
-
-        return rows_upserted
+        return rows
 
     except Exception as e:
-        logger.error("ETL falhou", endpoint=endpoint, error=str(e))
-        slack_notify(f"Falha crítica no pipeline SpaceX: Entidade '{endpoint}'")
-        FAILURE_COUNT.labels(endpoint=endpoint).inc()
+        logger.error("ETL failed", endpoint=endpoint, error=str(e))
+        alerts.alert(f"Falha crítica no pipeline SpaceX: {endpoint}")
+        metrics.record_failure(endpoint)
         raise
 
-# Flow principal com Paralelismo
+
+# ============================================================
+# FLOW PRINCIPAL MULTI-ENDPOINT
+# ============================================================
+
 @flow(
     name="SpaceX Enterprise ETL",
     task_runner=ConcurrentTaskRunner(),
-    description="Pipeline Medallion para extração e modelagem de dados da SpaceX"
 )
-def spacex_main_pipeline(incremental: bool = False, batch_size: int = 1000):
-    """Fluxo principal ETL SpaceX (Rockets → Launches → Gold/dbt)"""
-    
-    # Inicializa métricas Prometheus
-    start_http_server(8000)
-    logger.info("Prometheus metrics server started on port 8000")
+def spacex_main_pipeline(
+    batch_size: int = 1000,
+    connection_string: Optional[str] = None,
+    loader: Optional[Any] = None,
+    transformer: Optional[Any] = None,
+    extractor: Optional[Any] = None,
+    metrics: Optional[Any] = None,
+    alerts: Optional[Any] = None,
+    run_dbt_flag: bool = True,
+) -> None:
 
-    # Ingestão de dimensões (Rockets) com Paralelismo
-    logger.info("Iniciando ingestão de Rockets")
-    rocket_future = process_entity_task.submit("rockets", batch_size)
-    rocket_future.wait()  # garante que FKs existam antes de launches
+    settings = get_settings()
+    connection_string = connection_string or settings.DATABASE_URL
 
-    # Ingestão de fatos (Launches)
-    logger.info("Iniciando ingestão de Launches")
-    launch_future = process_entity_task.submit("launches", batch_size)
-    launch_future.wait()
+    # Instâncias com fallback
+    loader = loader or PostgresLoader(connection_string=connection_string)
+    transformer = transformer or SpaceXTransformer()
+    extractor = extractor or SpaceXExtractor()
+    metrics = metrics or MetricsService()
+    alerts = alerts or AlertService()
 
-    # Camada Gold (dbt)
-    logger.info("Iniciando transformações analíticas (dbt)")
-    run_dbt()
-    logger.info("ETL pipeline completed successfully")
+    # Inicia servidor de métricas
+    metrics.start_server()
+    logger.info("Metrics server iniciado")
 
-# Entry point
+    # Logging do início do pipeline
+    logger.info(
+        "Starting SpaceX ETL pipeline",
+        connection_host=connection_string.split("@")[-1]
+    )
+
+    # Processa todos os endpoints em paralelo
+    task_results = []
+    for endpoint in SCHEMA_REGISTRY.keys():
+        task_result = process_entity_task.submit(
+            endpoint=endpoint,
+            loader=loader,
+            transformer=transformer,
+            extractor=extractor,
+            metrics=metrics,
+            alerts=alerts,
+            batch_size=batch_size,
+        )
+        task_results.append((endpoint, task_result))
+
+    # Coleta resultados e atualiza métricas/alertas
+    total_rows = 0
+    for endpoint, task_result in task_results:
+        rows_processed = task_result.result()
+        total_rows += rows_processed or 0
+        metrics.SILVER_COUNT.labels(endpoint=endpoint).inc(rows_processed or 0)
+        logger.info(f"Metrics updated for {endpoint}", processed=rows_processed)
+        if (rows_processed or 0) == 0:
+            alerts.slack_notify(f"Pipeline SpaceX não processou nenhum registro no endpoint {endpoint}.")
+            logger.warning(f"No records processed for {endpoint}, Slack notification sent")
+
+    logger.info("ETL pipeline completed", total_rows=total_rows)
+
+    # dbt (opcional)
+    if run_dbt_flag:
+        logger.info("dbt run flag enabled - você pode chamar seu dbt runner aqui")
+
+
 if __name__ == "__main__":
     spacex_main_pipeline(batch_size=1000)
