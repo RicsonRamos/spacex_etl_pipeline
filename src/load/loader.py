@@ -30,9 +30,9 @@ class PostgresLoader:
                 "You must provide either 'connection_string' or 'engine'."
             )
 
-    # ============================================================
+    
     # BRONZE / GOLD (simples append/replace)
-    # ============================================================
+    
 
     def load_bronze(self, df: pl.DataFrame, table: str) -> int:
         if df.is_empty():
@@ -58,9 +58,9 @@ class PostgresLoader:
         )
         return len(df)
 
-    # ============================================================
+    
     # SILVER (ENTITY-DRIVEN ou TABLE-DRIVEN)
-    # ============================================================
+    
 
     def load_silver(
         self,
@@ -95,9 +95,9 @@ class PostgresLoader:
 
         return self._upsert(df, table)
 
-    # ============================================================
+    
     # BACKWARD COMPATIBILITY
-    # ============================================================
+    
 
     def upsert_silver(self, df: pl.DataFrame, entity: str) -> int:
         """Compatível com testes antigos"""
@@ -121,9 +121,9 @@ class PostgresLoader:
 
         return SCHEMA_REGISTRY[entity]
 
-    # ============================================================
+    
     # VALIDAÇÃO DE SCHEMA
-    # ============================================================
+    
 
     def _validate_schema(self, df: pl.DataFrame, entity: str):
         if entity not in SCHEMA_REGISTRY:
@@ -144,9 +144,9 @@ class PostgresLoader:
 
         return schema
 
-    # ============================================================
+    
     # UPSERT SIMPLES (INSERT)
-    # ============================================================
+    
     def _create_table_if_not_exists(
         self,
         df: pl.DataFrame,

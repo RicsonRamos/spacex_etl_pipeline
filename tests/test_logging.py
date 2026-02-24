@@ -14,9 +14,9 @@ def set_env_vars():
     os.environ["POSTGRES_DB"] = "test_db"
     os.environ["LOG_LEVEL"] = "INFO"
 
-# ============================================================
+
 # Testa setup_logging
-# ============================================================
+
 @pytest.mark.parametrize("isatty", [True, False])
 def test_setup_logging_calls_structlog_configure(isatty):
     with patch("sys.stderr.isatty", return_value=isatty):
@@ -31,9 +31,9 @@ def test_setup_logging_calls_structlog_configure(isatty):
             assert "processors" in kwargs
             assert isinstance(kwargs["processors"], list)
 
-# ============================================================
-# Testa se logger é instância Structlog
-# ============================================================
+
+
+
 def test_logger_is_structlog_logger():
     import src.utils.logging as logging_module
     logger = logging_module.logger

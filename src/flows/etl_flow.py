@@ -18,9 +18,9 @@ from src.config.settings import get_settings
 logger = structlog.get_logger()
 
 
-# ============================================================
+
 # TASK: DATA QUALITY
-# ============================================================
+
 
 @task(name="Data Quality Check")
 def data_quality_task(df: pl.DataFrame, endpoint: str):
@@ -30,9 +30,9 @@ def data_quality_task(df: pl.DataFrame, endpoint: str):
     return True
 
 
-# ============================================================
+
 # TASK: PROCESS ENTITY
-# ============================================================
+
 
 @task(
     retries=2,
@@ -91,9 +91,9 @@ def process_entity_task(
         raise
 
 
-# ============================================================
+
 # FLOW PRINCIPAL MULTI-ENDPOINT
-# ============================================================
+
 
 @flow(
     name="SpaceX Enterprise ETL",
@@ -108,6 +108,7 @@ def spacex_main_pipeline(
     metrics: Optional[Any] = None,
     alerts: Optional[Any] = None,
     run_dbt_flag: bool = True,
+    #incremental: bool = False,
 ) -> None:
 
     settings = get_settings()
@@ -141,6 +142,7 @@ def spacex_main_pipeline(
             metrics=metrics,
             alerts=alerts,
             batch_size=batch_size,
+            #incremental=incremental,
         )
         task_results.append((endpoint, task_result))
 

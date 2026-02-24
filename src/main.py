@@ -1,16 +1,19 @@
+# src/main.py
 import structlog
 import argparse
 
 from src.utils.logging import setup_logging
 from src.flows.etl_flow import spacex_main_pipeline
 
-
 def main(incremental: bool = False):
     """
     Ponto de entrada que conecta a CLI ao Flow.
     """
+    # ⚡ Import local evita erros de Settings em testes
+    from src.config.settings import get_settings
+    settings = get_settings()
 
-    setup_logging()  # <-- inicializa logging aqui, não no import
+    setup_logging()  # inicializa logging
     logger = structlog.get_logger()
 
     logger.info(
