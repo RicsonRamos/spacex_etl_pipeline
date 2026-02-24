@@ -9,6 +9,14 @@ logger = structlog.get_logger()
 
 class SpaceXTransformer:
     """Transforma dados brutos da API SpaceX em formato Silver pronto para persistência."""
+    def __init__(self):
+        pass
+
+    def process_in_batches(self, df: pl.DataFrame, batch_size: int):
+        """Divide o DataFrame em batches e processa cada um"""
+        total_batches = math.ceil(len(df) / batch_size)
+        for i in range(total_batches):
+            yield df[i * batch_size : (i + 1) * batch_size]
 
     def transform(
         self,
