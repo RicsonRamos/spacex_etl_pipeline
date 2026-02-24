@@ -1,17 +1,15 @@
-# .pre-commit-config.yaml
--   repo: https://github.com/pre-commit/mirrors-ruff
-    rev: v0.0.235
-    hooks:
-    -   id: ruff
+# Makefile para facilitar execução de tarefas comuns
 
--   repo: https://github.com/pre-commit/mirrors-black
-    rev: v22.3.0
-    hooks:
-    -   id: black
-      language_version: python3
+.PHONY: test run lint
 
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.942
-    hooks:
-    -   id: mypy
-      language_version: python3
+# Testes com pytest
+test:
+	python -m pytest --maxfail=5 --disable-warnings -v
+
+# Executa o pipeline
+run:
+	python src/etl/etl_flow.py
+
+# Linting com ruff
+lint:
+	ruff check .
