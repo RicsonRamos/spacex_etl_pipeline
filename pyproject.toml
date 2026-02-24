@@ -6,21 +6,36 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Ricson Ramos" }]
 dependencies = [
-    "prefect>=3.0.0",
-    "polars[rtcompat]>=1.0.0", # rtcompat garante integração com fsspec/cloud storage
-    "sqlalchemy>=2.0.0",
-    "psycopg[binary]>=3.1.0",   # Driver v3: Mais rápido e moderno que o psycopg2
-    "pydantic-settings>=2.2.0",
-    "structlog>=24.1.0",
-    "requests>=2.31.0",
-    "dbt-core>=1.7.0",
-    "dbt-postgres>=1.7.0"
+    # Core Orchestration & API
+    "prefect>=3.0.0,<3.6.0",
+    "prefect-slack>=0.2.0",
+    "requests>=2.32.0",
+    "pydantic==2.7.0",
+    "pydantic-settings>=2.2.1",
+    "pandas>=2.1.1",
+
+    # Data Engine
+    "polars-lts-cpu==0.20.10",
+    "pyarrow>=15.0.0",
+    "connectorx>=0.3.2",
+    "sqlalchemy==2.0.28",
+    "psycopg[binary]>=3.1.0",
+
+    # Transformation (DBT)
+    "dbt-core>=1.7.10",
+    "dbt-postgres>=1.7.10",
+
+    # Observability
+    "structlog>=24.2.0",
+    "prometheus-client>=0.21.0",
+
+    # Testing
+    "pytest>=8.1.1"
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-mock>=3.14.0",
+    "pytest-mock==3.14.0",
     "ruff>=0.3.0"
 ]
 
@@ -29,12 +44,11 @@ managed = true
 
 [tool.ruff]
 line-length = 88
-# Regras estendidas: Erros, Falhas, Importações, Complexidade (C90), Bugbear (B)
 lint.select = ["E", "F", "I", "C90", "B"]
-lint.ignore = ["D100"] # Ignora falta de docstring no topo do módulo se desejar
+lint.ignore = ["D100"]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 10 # Garante que suas funções não virem "monstros" lógicos
+max-complexity = 10
 
 [build-system]
 requires = ["hatchling"]

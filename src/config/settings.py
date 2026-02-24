@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, computed_field
 from typing import Optional
+import os
 
 class Settings(BaseSettings):
     """Gestão de configuração centralizada e tipada, pronta para ETL, logging e monitoramento."""
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
     # Database
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
-    POSTGRES_HOST: str
+    POSTGRES_HOST: str = Field(default_factory=lambda: os.getenv('POSTGRES_HOST_INTERNAL') if os.getenv('INSIDE_DOCKER') == '1' else os.getenv('POSTGRES_HOST_EXTERNAL'))
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str
 
@@ -40,9 +41,9 @@ class Settings(BaseSettings):
         )
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
+        env_file=".env",          # Carrega o arquivo .env
+        env_file_encoding="utf-8", # Encoding do arquivo .env
+        extra="ignore"            # Ignora variáveis extras no arquivo .env
     )
 
 def get_settings() -> Settings:

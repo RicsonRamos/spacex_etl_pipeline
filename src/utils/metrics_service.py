@@ -7,7 +7,7 @@ logger = structlog.get_logger()
 class MetricsService:
     """Serviço centralizado para métricas Prometheus."""
 
-    def __init__(self, port: int = 8000):
+    def __init__(self, port: int = 8001):
         self.port = port
         self.process_time_seconds = Summary("etl_process_time_seconds", "Tempo de execução do ETL", ["endpoint"])
         self.rows_loaded = Counter("etl_rows_loaded_total", "Número de linhas carregadas no ETL", ["endpoint"])

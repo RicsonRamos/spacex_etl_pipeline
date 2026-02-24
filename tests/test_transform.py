@@ -5,9 +5,9 @@ import polars as pl
 from src.transform.transformer import SpaceXTransformer
 from src.config.schema_registry import SCHEMA_REGISTRY
 
-# ------------------------------------------------------------
+
 # Fixtures
-# ------------------------------------------------------------
+
 @pytest.fixture
 def transformer():
     return SpaceXTransformer()
@@ -37,9 +37,9 @@ def mock_schema_factory():
         return schema
     return _create
 
-# ------------------------------------------------------------
+
 # Testes Básicos
-# ------------------------------------------------------------
+
 def test_transform_launches_success(transformer, sample_raw_launch):
     """Testa transformação básica de launches"""
     raw_data = [sample_raw_launch]
@@ -63,9 +63,9 @@ def test_transform_endpoint_not_in_registry(transformer):
         with pytest.raises(ValueError, match="Endpoint 'invalid_endpoint' não mapeado"):
             transformer.transform("invalid_endpoint", [{"id": 1}])
 
-# ------------------------------------------------------------
+
 # Testes de process_in_batches
-# ------------------------------------------------------------
+
 def test_process_in_batches(transformer):
     """Testa divisão de DataFrame em batches"""
     df = pl.DataFrame({
@@ -82,9 +82,9 @@ def test_process_in_batches(transformer):
     assert batches[0]["id"].to_list() == [1, 2]
     assert batches[2]["id"].to_list() == [5]
 
-# ------------------------------------------------------------
+
 # Testes de Incremental / last_ingested
-# ------------------------------------------------------------
+
 def test_transform_with_last_ingested_filter(transformer, sample_raw_launch):
     """Testa filtro incremental baseado em last_ingested"""
     old_launch = sample_raw_launch.copy()
@@ -111,17 +111,17 @@ def test_transform_with_last_ingested_no_tz(transformer, sample_raw_launch):
     df = transformer.transform("launches", [sample_raw_launch], last_ingested=last_ingested)
     assert isinstance(df, pl.DataFrame)
 
-# ------------------------------------------------------------
-# Testes de Rename e Casts (CORRIGIDOS)
-# ------------------------------------------------------------
+
+
+
 def test_transform_with_rename_and_casts(transformer, mock_schema_factory):
     """Testa rename de colunas e casting de tipos"""
-    # ✅ CORRIGIDO: Usa True/False booleanos reais, não strings
+   
     data = [{
         "id": "123",
         "name": "Test Launch",
         "date_utc": "2023-01-01T00:00:00.000Z",
-        "success": True  # ✅ Boolean real, não string "true"
+        "success": True  
     }]
     
     mock_schema = mock_schema_factory(
@@ -147,9 +147,9 @@ def test_transform_rename_partial(transformer, mock_schema_factory):
         "success": True
     }]
     
-    # ✅ CORRIGIDO: Schema com apenas colunas que existem nos dados
+    
     mock_schema = mock_schema_factory(
-        columns=["launch_id", "name", "date_utc", "success"],  # ✅ Sem missing_col
+        columns=["launch_id", "name", "date_utc", "success"], 
         pk="launch_id",
         rename={"id": "launch_id", "non_existent": "also_non_existent"},
         casts={}
@@ -159,9 +159,9 @@ def test_transform_rename_partial(transformer, mock_schema_factory):
         df = transformer.transform("launches", data)
         assert "launch_id" in df.columns
 
-# ------------------------------------------------------------
+
 # Testes de Deduplicação
-# ------------------------------------------------------------
+
 def test_transform_deduplication_with_pk(transformer, mock_schema_factory):
     """Testa deduplicação baseada na chave primária"""
     data = [
@@ -197,9 +197,9 @@ def test_transform_deduplication_pk_null(transformer, mock_schema_factory):
         assert df.shape[0] == 1
         assert df["id"][0] == "1"
 
-# ------------------------------------------------------------
+
 # Testes de Schema Validation
-# ------------------------------------------------------------
+
 def test_transform_missing_columns_raises_error(transformer, mock_schema_factory):
     """Testa erro quando colunas do schema não estão presentes"""
     data = [{"id": "1", "name": "Test"}]  # Faltando date_utc e success
@@ -212,9 +212,9 @@ def test_transform_missing_columns_raises_error(transformer, mock_schema_factory
         with pytest.raises(ValueError, match="Divergência de Schema"):
             transformer.transform("launches", data)
 
-# ------------------------------------------------------------
+
 # Testes de Tratamento de Erro
-# ------------------------------------------------------------
+
 def test_transform_exception_propagation(transformer):
     """Testa que exceções são propagadas após logging"""
     data = [{"id": "1"}]
@@ -231,9 +231,9 @@ def test_transform_logs_exception_on_error(transformer):
         with pytest.raises(ValueError):
             transformer.transform("launches", data)
 
-# ------------------------------------------------------------
+
 # Testes de Date Parsing Edge Cases
-# ------------------------------------------------------------
+
 def test_transform_date_parsing_various_formats(transformer, mock_schema_factory):
     """Testa parsing de datas em diferentes formatos ISO"""
     data = [
@@ -264,20 +264,18 @@ def test_transform_date_already_datetime(transformer, mock_schema_factory):
         result = transformer.transform("launches", data)
         assert isinstance(result, pl.DataFrame)
 
-# ------------------------------------------------------------
+
 # Teste de Cast de String para Boolean (se necessário)
-# ------------------------------------------------------------
+
 def test_transform_cast_string_to_bool_with_mapping(transformer, mock_schema_factory):
     """Testa cast de string 'true'/'false' para boolean usando mapeamento"""
-    # Se seu código precisar suportar isso, o transformer deve ter lógica especial
-    # Por enquanto, este teste documenta a limitação
+    
     data = [{
         "id": "123",
         "success": "true"  # String
     }]
     
-    # ✅ CORRIGIDO: Cast manual antes ou usar expressão Polars
-    # Exemplo de como o schema poderia ter uma função de cast customizada
+    
     mock_schema = mock_schema_factory(
         columns=["id", "success"],
         pk="id",
@@ -285,7 +283,6 @@ def test_transform_cast_string_to_bool_with_mapping(transformer, mock_schema_fac
     )
     
     with patch.dict(SCHEMA_REGISTRY, {"launches": mock_schema}, clear=False):
-        # Se o transformer tentar cast direto de "true" (string) para bool, vai falhar
-        # O teste espera que dados já cheguem no tipo correto ou que haja pré-processamento
+        
         with pytest.raises(pl.exceptions.InvalidOperationError):
             transformer.transform("launches", data)
