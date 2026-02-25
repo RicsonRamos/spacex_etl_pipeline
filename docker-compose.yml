@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:16-alpine
@@ -27,10 +29,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file: .env
-    # Sobrescrevemos o HOST para o nome do serviço no docker
+    env_file: .env  # Carrega as variáveis do .env
     environment:
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=db  # Usando o nome do serviço Docker como host do banco
       - DBT_PROFILES_DIR=/app/dbt
     networks:
       - private_network
