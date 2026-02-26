@@ -24,17 +24,13 @@ def run_dbt():
         for cmd in commands:
             logger.info(f"Executando comando dbt: {' '.join(cmd)}")
 
-            result = subprocess.run(
-                cmd, cwd=dbt_dir, capture_output=True, text=True, check=True
-            )
+            result = subprocess.run(cmd, cwd=dbt_dir, capture_output=True, text=True, check=True)
 
             logger.info(f"Sucesso: {' '.join(cmd)}")
             if result.stdout:
                 # Loga apenas o sumário para não poluir o log central
                 summary = [
-                    line
-                    for line in result.stdout.split("\n")
-                    if "Actual" in line or "OK" in line
+                    line for line in result.stdout.split("\n") if "Actual" in line or "OK" in line
                 ]
                 logger.debug("dbt output", output=summary)
 
@@ -45,4 +41,4 @@ def run_dbt():
             error=e.stderr,
             stdout=e.stdout,
         )
-        raise RuntimeError(f"Erro no dbt: {e.stderr}")
+        raise RuntimeError(f"Erro no dbt: {e.stderr}") from e

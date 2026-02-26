@@ -1,10 +1,13 @@
-from typing import List, Dict, Optional, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import polars as pl
-from src.transformers.base import BaseTransformer
 import structlog
 
+from src.transformers.base import BaseTransformer
+
 logger = structlog.get_logger()
+
 
 class RocketTransformer(BaseTransformer):
     schema = {
@@ -12,9 +15,7 @@ class RocketTransformer(BaseTransformer):
         "columns": ["rocket_id", "name", "active", "cost_per_launch", "success_rate_pct"],
         "pk": "rocket_id",
         "casts": {"rocket_id": pl.Utf8},
-        
     }
-
 
     def transform(
         self,

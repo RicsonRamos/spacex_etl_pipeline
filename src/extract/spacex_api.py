@@ -41,9 +41,7 @@ class SpaceXExtractor:
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
-            logger.error(
-                "Erro crítico na requisição HTTP", endpoint=endpoint, error=str(e)
-            )
+            logger.error("Erro crítico na requisição HTTP", endpoint=endpoint, error=str(e))
             raise
 
         if not schema:

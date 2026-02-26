@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import List, Dict, Optional, Any
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
 import polars as pl
 
 
@@ -30,7 +31,6 @@ class BaseTransformer(ABC):
         Returns:
             pl.DataFrame: The transformed data.
         """
-    
 
     def _build_df(self, data: List[Dict[str, Any]]) -> pl.DataFrame:
         """
@@ -43,7 +43,7 @@ class BaseTransformer(ABC):
             pl.DataFrame: The transformed data.
         """
         return pl.from_dicts(data)
-    
+
     def _deduplicate(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         Deduplicate the transformed data by removing duplicate records based on the primary key.
@@ -75,7 +75,6 @@ class BaseTransformer(ABC):
         if missing:
             raise ValueError(f"Missing columns in transformed data: {missing}")
 
-
     def _rename_columns(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         Rename columns in the transformed data based on the schema.
@@ -95,7 +94,8 @@ class BaseTransformer(ABC):
 
     def _normalize_dates(self, df: pl.DataFrame) -> pl.DataFrame:
         """
-        Normalize the date columns in the transformed data by converting them to UTC and datetime type.
+        Normalize the date columns in the transformed data by 
+        converting them to UTC and datetime type.
 
         Args:
             df (pl.DataFrame): The transformed data.
@@ -114,7 +114,9 @@ class BaseTransformer(ABC):
             )
         return df
 
-    def _apply_incremental_filter(self, df: pl.DataFrame, last_ingested: Optional[datetime]) -> pl.DataFrame:
+    def _apply_incremental_filter(
+        self, df: pl.DataFrame, last_ingested: Optional[datetime]
+    ) -> pl.DataFrame:
         """
         Apply an incremental filter to the transformed data based on the last ingestion date.
 
@@ -151,7 +153,6 @@ class BaseTransformer(ABC):
                 df = df.with_columns(pl.col(col).cast(dtype, strict=False))
         return df
 
-   
     def _select_columns(self, df: pl.DataFrame) -> pl.DataFrame:
         """
         Select only the columns specified in the schema.

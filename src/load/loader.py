@@ -43,8 +43,7 @@ class PostgresLoader:
         try:
             with self.engine.connect() as conn:
                 existing_cols = [
-                    row[0]
-                    for row in conn.execute(query, {"table": schema.silver_table})
+                    row[0] for row in conn.execute(query, {"table": schema.silver_table})
                 ]
 
             if not existing_cols:
@@ -61,9 +60,7 @@ class PostgresLoader:
                     entity=entity,
                     missing_columns=missing_in_db,
                 )
-                raise ValueError(
-                    f"Banco desatualizado. Colunas ausentes: {missing_in_db}"
-                )
+                raise ValueError(f"Banco desatualizado. Colunas ausentes: {missing_in_db}")
 
         except SQLAlchemyError as e:
             logger.error("Falha ao inspecionar banco", error=str(e))
@@ -136,9 +133,7 @@ class PostgresLoader:
         # Converte colunas complexas para string (List, Struct, Object)
         complex_types = [pl.List, pl.Struct, pl.Object]
         cols_to_cast = [
-            c
-            for c in df.columns
-            if any(isinstance(df[c].dtype, t) for t in complex_types)
+            c for c in df.columns if any(isinstance(df[c].dtype, t) for t in complex_types)
         ]
         if cols_to_cast:
             df = df.with_columns([pl.col(c).cast(pl.Utf8) for c in cols_to_cast])
@@ -155,8 +150,7 @@ class PostgresLoader:
         conflict_action = (
             "DO NOTHING"
             if not update_cols
-            else "DO UPDATE SET "
-            + ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
+            else "DO UPDATE SET " + ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
         )
 
         query = text(f"""
