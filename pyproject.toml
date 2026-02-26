@@ -28,7 +28,7 @@ dev = [
 managed = true
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 # Regras estendidas: Erros, Falhas, Importações, Complexidade (C90), Bugbear (B)
 lint.select = ["E", "F", "I", "C90", "B"]
 lint.ignore = ["D100"] # Ignora falta de docstring no topo do módulo se desejar

@@ -1,14 +1,14 @@
 import json
-import structlog
-import polars as pl
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+import polars as pl
+import structlog
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from src.config.settings import settings
 from src.config.schema_registry import SCHEMA_REGISTRY
+from src.config.settings import settings
 
 logger = structlog.get_logger()
 
@@ -26,9 +26,8 @@ class PostgresLoader:
             future=True,
         )
 
-    
     # Validação de schema
-    
+
     def validate_and_align_schema(self, entity: str):
         """Valida se colunas do banco estão de acordo com o SCHEMA_REGISTRY."""
         schema = SCHEMA_REGISTRY.get(entity)
@@ -43,12 +42,15 @@ class PostgresLoader:
         """)
         try:
             with self.engine.connect() as conn:
-                existing_cols = [row[0] for row in conn.execute(query, {"table": schema.silver_table})]
+                existing_cols = [
+                    row[0]
+                    for row in conn.execute(query, {"table": schema.silver_table})
+                ]
 
             if not existing_cols:
                 logger.warning(
                     "Tabela não detectada; assumindo criação via DDL inicial",
-                    table=schema.silver_table
+                    table=schema.silver_table,
                 )
                 return
 
@@ -57,17 +59,18 @@ class PostgresLoader:
                 logger.error(
                     "Divergência de schema detectada",
                     entity=entity,
-                    missing_columns=missing_in_db
+                    missing_columns=missing_in_db,
                 )
-                raise ValueError(f"Banco desatualizado. Colunas ausentes: {missing_in_db}")
+                raise ValueError(
+                    f"Banco desatualizado. Colunas ausentes: {missing_in_db}"
+                )
 
         except SQLAlchemyError as e:
             logger.error("Falha ao inspecionar banco", error=str(e))
             raise
 
-    
     # Marca d'água (incremental)
-    
+
     def get_last_ingested(self, table_name: str, column: str = "date_utc") -> datetime:
         """Retorna último timestamp ingerido (UTC-aware) para cargas incrementais."""
         query = text(f"SELECT MAX({column}) FROM {table_name}")
@@ -85,13 +88,12 @@ class PostgresLoader:
             logger.warning(
                 "Falha ao buscar marca d'água, usando padrão 2000-01-01 UTC",
                 table=table_name,
-                error=str(e)
+                error=str(e),
             )
             return datetime(2000, 1, 1, tzinfo=timezone.utc)
 
-    
     # Bronze Loader
-    
+
     def load_bronze(self, data: List[Dict[str, Any]], entity: str, source: str) -> int:
         """Persiste dados brutos em JSONB, timestamp UTC."""
         if not data:
@@ -104,7 +106,7 @@ class PostgresLoader:
             {
                 "source": source,
                 "raw_data": json.dumps(row, default=str),
-                "ingested_at": ingested_at
+                "ingested_at": ingested_at,
             }
             for row in data
         ]
@@ -122,9 +124,8 @@ class PostgresLoader:
             logger.error("Falha na carga Bronze", entity=entity, error=str(e))
             raise
 
-    
     # Silver Loader (Upsert)
-    
+
     def upsert_silver(self, df: pl.DataFrame, entity: str) -> int:
         """Upsert para tabela Silver usando PK do schema."""
         if df.is_empty():
@@ -134,7 +135,11 @@ class PostgresLoader:
 
         # Converte colunas complexas para string (List, Struct, Object)
         complex_types = [pl.List, pl.Struct, pl.Object]
-        cols_to_cast = [c for c in df.columns if any(isinstance(df[c].dtype, t) for t in complex_types)]
+        cols_to_cast = [
+            c
+            for c in df.columns
+            if any(isinstance(df[c].dtype, t) for t in complex_types)
+        ]
         if cols_to_cast:
             df = df.with_columns([pl.col(c).cast(pl.Utf8) for c in cols_to_cast])
 
@@ -147,8 +152,12 @@ class PostgresLoader:
 
         # Define ação de conflito
         update_cols = [c for c in target_cols if c != schema.pk]
-        conflict_action = "DO NOTHING" if not update_cols else \
-            "DO UPDATE SET " + ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
+        conflict_action = (
+            "DO NOTHING"
+            if not update_cols
+            else "DO UPDATE SET "
+            + ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
+        )
 
         query = text(f"""
             INSERT INTO {schema.silver_table} ({insert_cols})

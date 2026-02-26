@@ -1,7 +1,10 @@
-import structlog
 import logging
 import sys
+
+import structlog
+
 from src.config.settings import settings
+
 
 def setup_logging():
     """

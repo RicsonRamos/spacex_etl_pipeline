@@ -1,15 +1,19 @@
-from pydantic import BaseModel, ConfigDict
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
+
 
 class BaseAPISchema(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="ignore")
+
 
 class RocketAPI(BaseAPISchema):
     id: str
     name: str
     active: bool
     cost_per_launch: Optional[int] = None
-    success_rate_pct: Optional[float] = None 
+    success_rate_pct: Optional[float] = None
+
 
 class LaunchAPI(BaseAPISchema):
     id: str
@@ -18,7 +22,5 @@ class LaunchAPI(BaseAPISchema):
     success: Optional[bool] = None
     rocket: str
 
-API_SCHEMAS = {
-    "rockets": RocketAPI,
-    "launches": LaunchAPI
-}
+
+API_SCHEMAS = {"rockets": RocketAPI, "launches": LaunchAPI}

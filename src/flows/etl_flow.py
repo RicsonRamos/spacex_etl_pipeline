@@ -1,26 +1,32 @@
+from datetime import timezone
+
 import structlog
 from prefect import flow, task
 from prefect.task_runners import ConcurrentTaskRunner
 
 from src.extract.spacex_api import SpaceXExtractor
-from src.transform.transformer import SpaceXTransformer  
-from src.load.loader import PostgresLoader 
-from src.utils.monitoring import EXTRACT_COUNT, SILVER_COUNT, start_metrics_server, slack_notify
+from src.load.loader import PostgresLoader
+from src.transform.transformer import SpaceXTransformer
 from src.utils.dbt_tools import run_dbt
-from datetime import timezone
+from src.utils.monitoring import (
+    EXTRACT_COUNT,
+    SILVER_COUNT,
+    slack_notify,
+    start_metrics_server,
+)
 
 logger = structlog.get_logger()
 
 
 @task(
-    retries=3, 
-    retry_delay_seconds=30, 
+    retries=3,
+    retry_delay_seconds=30,
     name="Process SpaceX Entity",
-    tags=["spacex-ingestion"]
+    tags=["spacex-ingestion"],
 )
 def process_entity_task(endpoint: str):
     """ETL completo de uma entidade SpaceX (Bronze → Transform → Silver)"""
-    
+
     extractor = SpaceXExtractor()
     transformer = SpaceXTransformer()
     loader = PostgresLoader()
@@ -31,6 +37,7 @@ def process_entity_task(endpoint: str):
 
         # Marca d'água para carga incremental
         from src.config.schema_registry import SCHEMA_REGISTRY
+
         schema_cfg = SCHEMA_REGISTRY.get(endpoint)
         last_date = loader.get_last_ingested(schema_cfg.silver_table)
         if last_date.tzinfo is None:
@@ -59,7 +66,7 @@ def process_entity_task(endpoint: str):
         logger.info(
             "ETL concluído para entidade",
             endpoint=endpoint,
-            rows_processed=rows_upserted
+            rows_processed=rows_upserted,
         )
         return rows_upserted
 
@@ -72,14 +79,14 @@ def process_entity_task(endpoint: str):
 @flow(
     name="SpaceX Enterprise ETL",
     task_runner=ConcurrentTaskRunner(),
-    description="Pipeline Medallion para extração e modelagem de dados da SpaceX"
+    description="Pipeline Medallion para extração e modelagem de dados da SpaceX",
 )
 def spacex_main_pipeline(incremental: bool = False):
     """Fluxo principal ETL SpaceX (Rockets → Launches → Gold/dbt)"""
-    
+
     # Inicializa métricas Prometheus
     start_metrics_server(8000)
-    
+
     # Ingestão de dimensões base (Rockets)
     logger.info("Iniciando ingestão de Rockets")
     rocket_future = process_entity_task.submit("rockets")
