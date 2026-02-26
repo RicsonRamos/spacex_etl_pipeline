@@ -4,7 +4,7 @@ import structlog
 from prefect import flow, task
 from prefect.task_runners import ConcurrentTaskRunner
 
-from src.extract.spacex_api import SpaceXExtractor
+from src.extract.base_extractor import SpaceXExtractor
 from src.load.loader import PostgresLoader
 from src.transform.transformer import SpaceXTransformer
 from src.utils.dbt_tools import run_dbt
