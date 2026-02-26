@@ -9,29 +9,22 @@ services:
     networks:
       - private_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-spacex_db}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
 
   etl_app:
-    build: 
-      context: .
-      dockerfile: Dockerfile  
+    build: .
     container_name: spacex_pipeline
     depends_on:
       db:
         condition: service_healthy
-    env_file: .env  # Carrega as variáveis do .env
+    env_file: .env
     environment:
-      - POSTGRES_HOST=db  # Usando o nome do serviço Docker como host do banco
+      - POSTGRES_HOST=db  # CRÍTICO: Deve ser o nome do serviço 'db'
       - DBT_PROFILES_DIR=/app/dbt
     networks:
       - private_network
@@ -39,16 +32,12 @@ services:
       - .:/app
       - etl_logs:/app/logs
     restart: on-failure
-    
-    command: 
-      - sh
-      - -c
-      - |
-        while true; do
-          python -m src.flows.etl_flow
-          echo "Ciclo finalizado. Aguardando 1 hora..."
-          sleep 3600
-        done
+    command: >
+      sh -c "while true; do 
+               python -m src.flows.etl_flow;
+               echo 'Ciclo finalizado. Aguardando 1 hora...';
+               sleep 3600;
+             done"
 
 networks:
   private_network:
