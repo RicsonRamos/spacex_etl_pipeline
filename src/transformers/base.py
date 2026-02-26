@@ -94,7 +94,7 @@ class BaseTransformer(ABC):
 
     def _normalize_dates(self, df: pl.DataFrame) -> pl.DataFrame:
         """
-        Normalize the date columns in the transformed data by 
+        Normalize the date columns in the transformed data by
         converting them to UTC and datetime type.
 
         Args:
