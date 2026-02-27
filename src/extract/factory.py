@@ -1,25 +1,26 @@
-from .launches import LaunchExtract
-from .rockets import RocketExtract
+from src.extract.launches import LaunchExtract
+from src.extract.rockets import RocketExtract
+from src.extract.base import BaseExtractor
 
 EXTRACTORS = {
     "launches": LaunchExtract,
     "rockets": RocketExtract,
 }
 
-def get_extractor(endpoint: str) -> BaseExtractor:
+def get_extractor(endpoint: str) -> type[BaseExtractor]:
     """
-    Returns an instance of an extractor for the given endpoint.
+    Retorna a classe do extractor para o endpoint informado.
 
     Args:
-        endpoint (str): The name of the endpoint.
+        endpoint (str): O nome do endpoint.
 
     Returns:
-        BaseExtractor: An instance of an extractor.
+        type[BaseExtractor]: Classe do extractor.
 
     Raises:
-        ValueError: If the extractor for the given endpoint is not found.
+        ValueError: Se o extractor não for encontrado.
     """
     cls = EXTRACTORS.get(endpoint)
     if not cls:
         raise ValueError(f"Extractor para endpoint '{endpoint}' não encontrado")
-    return cls()
+    return cls  # retorna a classe, não a instância

@@ -1,5 +1,5 @@
+# src/transformers/factory.py
 from typing import Type
-
 from src.transformers.base import BaseTransformer
 from src.transformers.launch import LaunchTransformer
 from src.transformers.rocket import RocketTransformer
@@ -7,9 +7,10 @@ from src.transformers.rocket import RocketTransformer
 
 class TransformerFactory:
     """
-    A factory for creating transformers.
+    Factory para criar instâncias de transformers do ETL.
 
-    The factory is responsible for managing a registry of available transformers.
+    Mantém um registro (_registry) de transformers disponíveis
+    e permite criar instâncias pelo nome da entidade.
     """
 
     _registry: dict[str, Type[BaseTransformer]] = {}
@@ -17,37 +18,52 @@ class TransformerFactory:
     @classmethod
     def register(cls, name: str, transformer_cls: Type[BaseTransformer]):
         """
-        Registers a transformer in the factory.
+        Registra um transformer no factory.
 
         Args:
-            name (str): The name of the transformer.
-            transformer_cls (Type[BaseTransformer]): The class of the transformer.
+            name (str): nome da entidade/transformer
+            transformer_cls (Type[BaseTransformer]): classe do transformer
 
         Raises:
-            ValueError: If the name is already registered.
+            ValueError: se o nome já estiver registrado
         """
         if name in cls._registry:
-            raise ValueError(f"Transformer '{name}' already registered.")
+            raise ValueError(f"Transformer '{name}' já registrado.")
         cls._registry[name] = transformer_cls
+
+    @classmethod
+    def get(cls, name: str) -> Type[BaseTransformer]:
+        """
+        Retorna a classe registrada para um nome de entidade.
+
+        Args:
+            name (str): nome da entidade
+
+        Raises:
+            ValueError: se o transformer não estiver registrado
+        """
+        if name not in cls._registry:
+            raise ValueError(f"Transformer '{name}' não registrado.")
+        return cls._registry[name]
 
     @classmethod
     def create(cls, name: str) -> BaseTransformer:
         """
-        Creates an instance of a registered transformer.
+        Cria uma instância do transformer registrado para a entidade.
 
         Args:
-            name (str): The name of the transformer.
+            name (str): nome da entidade
 
         Returns:
-            BaseTransformer: An instance of the transformer.
+            BaseTransformer: instância do transformer
 
         Raises:
-            ValueError: If the transformer is not registered.
+            ValueError: se o transformer não estiver registrado
         """
-        if name not in cls._registry:
-            raise ValueError(f"Transformer '{name}' not registered.")
-        return cls._registry[name]()
+        transformer_cls = cls.get(name)
+        return transformer_cls()
 
 
+# Registra transformers do projeto
 TransformerFactory.register("launches", LaunchTransformer)
 TransformerFactory.register("rockets", RocketTransformer)
