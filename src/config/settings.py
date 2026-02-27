@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     SLACK_WEBHOOK_URL: Optional[str] = None
 
     @property
-    @computed_field
     def DATABASE_URL(self) -> str:
         """
         URL de conexão formatada para SQLAlchemy 2.0.
