@@ -108,7 +108,7 @@ class BaseTransformer(ABC):
             # Convert the date column to UTC and datetime type
             df = df.with_columns(
                 pl.col(date_col)
-                .str.to_datetime(format="%Y-%m-%dT%H:%M:%S.%fZ", time_zone="UTC", strict=False)
+                .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_zone="UTC", strict=False)
                 .cast(pl.Datetime("us", time_zone="UTC"))
                 .alias(date_col)
             )

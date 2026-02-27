@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 import structlog
-from .base_extractor import BaseExtractor
+from .base import BaseExtractor
 
 logger = structlog.get_logger()
 
@@ -26,5 +26,5 @@ class RocketExtract(BaseExtractor):
             return self.fetch(self.endpoint)
         else:
             logger.info("Returning mock rockets data")
-            from tests.conftest import MOCK_ROCKETS
+            from tests.unit.extract.conftest import MOCK_ROCKETS
             return MOCK_ROCKETS
