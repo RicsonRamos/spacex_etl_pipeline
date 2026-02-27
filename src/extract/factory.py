@@ -23,4 +23,4 @@ def get_extractor(endpoint: str) -> type[BaseExtractor]:
     cls = EXTRACTORS.get(endpoint)
     if not cls:
         raise ValueError(f"Extractor para endpoint '{endpoint}' não encontrado")
-    return cls  # retorna a classe, não a instância
+    return cls  

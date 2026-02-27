@@ -1,44 +1,85 @@
 import argparse
 import structlog
-
-# Importa o fluxo principal do Prefect
 from src.flows.flows import spacex_main_pipeline
 
-# Configuração básica de logs estruturados
-logger = structlog.get_logger()
 
-def main(incremental: bool = False):
+class PipelineExecutor:
+    def __init__(self, incremental: bool):
+        """
+        Inicializa o executor de pipeline com o modo de execução.
+
+        :param incremental: Define se o pipeline deve ser executado de forma incremental (novos dados) ou completo (full).
+        """
+        self.incremental = incremental
+        self.logger = structlog.get_logger()
+
+    def start_pipeline(self):
+        """
+        Inicia o SpaceX Medallion Pipeline, seja incremental ou completo.
+        """
+        self._log_pipeline_start()
+        try:
+            spacex_main_pipeline(incremental=self.incremental)
+            self._log_pipeline_success()
+        except Exception as e:
+            self._log_pipeline_failure(e)
+
+    def _log_pipeline_start(self):
+        """
+        Registra o início do pipeline com o modo selecionado.
+        """
+        mode = "incremental" if self.incremental else "full"
+        self.logger.info("Iniciando SpaceX Medallion Pipeline", mode=mode)
+
+    def _log_pipeline_success(self):
+        """
+        Registra o sucesso do pipeline.
+        """
+        self.logger.info("Pipeline finalizado com sucesso 🚀")
+
+    def _log_pipeline_failure(self, error):
+        """
+        Registra a falha do pipeline.
+        """
+        self.logger.error("Falha catastrófica no ponto de entrada", error=str(error))
+
+
+class CLI:
+    def __init__(self):
+        """
+        Inicializa a CLI com a configuração dos parâmetros de execução.
+        """
+        self.parser = argparse.ArgumentParser(description="SpaceX Medallion Pipeline CLI")
+        self.parser.add_argument(
+            "--incremental",
+            action="store_true",
+            default=False,
+            help="Executa o pipeline processando apenas novos registros (delta load)",
+        )
+
+    def parse_args(self):
+        """
+        Faz o parse dos argumentos da linha de comando.
+
+        :return: Argumentos parsed (incremental).
+        """
+        return self.parser.parse_args()
+
+
+def main():
     """
-    Ponto de entrada que conecta a CLI ao Flow do Prefect.
-
-    :param incremental: Define se o pipeline será executado de forma incremental (somente novos dados) ou completo (full).
+    Função principal que orquestra a execução do pipeline a partir da CLI.
     """
-    logger.info(
-        "Iniciando SpaceX Medallion Pipeline",
-        mode="incremental" if incremental else "full",
-    )
+    # Parse dos argumentos da linha de comando
+    cli = CLI()
+    args = cli.parse_args()
 
-    try:
-        # Chama o Flow 'spacex_main_pipeline' com o argumento 'incremental'
-        spacex_main_pipeline(incremental=incremental)
+    # Inicializa o executor do pipeline com o modo desejado
+    pipeline_executor = PipelineExecutor(incremental=args.incremental)
 
-        logger.info("Pipeline finalizado com sucesso 🚀")
+    # Inicia a execução do pipeline
+    pipeline_executor.start_pipeline()
 
-    except Exception as e:
-        # Loga erro caso ocorra alguma falha no pipeline
-        logger.error("Falha catastrófica no ponto de entrada", error=str(e))
-        raise
 
 if __name__ == "__main__":
-    # Configuração da CLI para o pipeline com argparse
-    parser = argparse.ArgumentParser(description="SpaceX Medallion Pipeline CLI")
-    parser.add_argument(
-        "--incremental",
-        action="store_true",  # Faz com que a flag --incremental seja tratada como True
-        default=False,        # Caso não passe a flag, a execução será completa
-        help="Executa o pipeline processando apenas novos registros (delta load)",
-    )
-    args = parser.parse_args()
-
-    # Chama a função principal passando o modo incremental
-    main(incremental=args.incremental)
+    main()

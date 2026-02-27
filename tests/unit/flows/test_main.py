@@ -1,37 +1,108 @@
 import pytest
 from unittest import mock
-from src.main import spacex_main_pipeline
+import logging
+from prefect.testing.utilities import prefect_test_harness
 
-# Mocking das dependências
-@mock.patch('src.utils.monitoring.start_metrics_server')  # Correção do caminho do start_metrics_server
-@mock.patch('src.flows.tasks.process_entity_task')  # Correção do caminho da task process_entity_task
-@mock.patch('src.flows.flows.run_dbt') # Correção para o caminho correto de run_dbt
-def test_spacex_main_pipeline(mock_run_dbt, mock_process_entity_task, mock_start_metrics):
+# Desativar logs verbosos do Prefect
+logging.getLogger("prefect").setLevel(logging.ERROR)
+logging.getLogger("rich").disabled = True
+
+
+@pytest.fixture
+def mock_dependencies():
+    """Fixture que fornece mocks configurados para todas as dependências."""
+    with mock.patch('src.flows.tasks.process_entity_task') as mock_task, \
+         mock.patch('src.flows.flows.start_pipeline_monitoring_task') as mock_metrics, \
+         mock.patch('src.flows.flows.run_dbt_task') as mock_dbt:
+        
+        # Configura mock da task principal
+        mock_future = mock.Mock()
+        mock_future.wait.return_value = None
+        mock_future.result.return_value = 1
+        mock_task.submit.return_value = mock_future
+        mock_task.return_value = 1
+        
+        yield {
+            'process_task': mock_task,
+            'metrics': mock_metrics,
+            'dbt': mock_dbt
+        }
+
+
+def test_spacex_main_pipeline_calls_all_tasks(mock_dependencies):
     """
-    Teste para o fluxo principal spacex_main_pipeline:
-    - Verifica se as tasks 'process_entity_task' são chamadas corretamente.
-    - Verifica se o fluxo de dbt é chamado após a ingestão.
-    - Verifica a inicialização do servidor de métricas Prometheus.
+    Teste que verifica se todas as tasks são chamadas corretamente.
     """
+    from src.flows.flows import spacex_main_pipeline
     
-    # Configuração dos mocks
-    mock_process_entity_task.return_value = 1  # Simula que 1 registro foi processado com sucesso
-    mock_run_dbt.return_value = None  # Não precisamos de retorno para run_dbt
-    mock_start_metrics.return_value = None  # Não precisamos de retorno para start_metrics_server
+    # Executa o flow com dependências mockadas via injeção
+    with prefect_test_harness():
+        spacex_main_pipeline(
+            incremental=False, 
+            real_api=True,
+            process_entity_task=mock_dependencies['process_task'],
+            start_metrics=mock_dependencies['metrics'],
+            run_dbt=mock_dependencies['dbt']
+        )
+    
+    # Verifica métricas
+    mock_dependencies['metrics'].assert_called_once_with(8000)
+    
+    # Verifica processamento de entidades (2 chamadas via .submit())
+    process_task = mock_dependencies['process_task']
+    assert process_task.submit.call_count == 2
+    
+    # Verifica chamadas específicas
+    process_task.submit.assert_any_call(
+        "rockets", real_api=True, incremental=False
+    )
+    process_task.submit.assert_any_call(
+        "launches", real_api=True, incremental=False
+    )
+    
+    # Verifica dbt
+    mock_dependencies['dbt'].assert_called_once()
 
-    # Executando o fluxo completo
-    spacex_main_pipeline(incremental=False, real_api=True)
 
-    # Verifica se as tasks foram chamadas com os parâmetros corretos
-    mock_process_entity_task.assert_any_call("rockets", real_api=True, incremental=False)
-    mock_process_entity_task.assert_any_call("launches", real_api=True, incremental=False)
+def test_spacex_main_pipeline_with_defaults(mock_dependencies):
+    """
+    Teste que verifica o comportamento com parâmetros default.
+    """
+    from src.flows.flows import spacex_main_pipeline
+    
+    with prefect_test_harness():
+        spacex_main_pipeline(
+            process_entity_task=mock_dependencies['process_task'],
+            start_metrics=mock_dependencies['metrics'],
+            run_dbt=mock_dependencies['dbt']
+        )
+    
+    # Verifica defaults (incremental=False, real_api=False)
+    process_task = mock_dependencies['process_task']
+    process_task.submit.assert_any_call(
+        "rockets", real_api=False, incremental=False
+    )
 
-    # Verifica se o fluxo de dbt foi executado após a ingestão de dados
-    mock_run_dbt.assert_called_once()
 
-    # Verifica se as métricas foram inicializadas
-    mock_start_metrics.assert_called_once_with(8000)
-
-    # Verificar se o fluxo foi chamado corretamente para Rockets e Launches
-    assert mock_process_entity_task.call_count == 2  # Espera-se que o processo de Rockets e Launches seja chamado
-    assert mock_run_dbt.call_count == 1  # O dbt deve ser executado uma vez
+def test_spacex_main_pipeline_incremental_mode(mock_dependencies):
+    """
+    Teste específico para modo incremental.
+    """
+    from src.flows.flows import spacex_main_pipeline
+    
+    with prefect_test_harness():
+        spacex_main_pipeline(
+            incremental=True,
+            real_api=False,
+            process_entity_task=mock_dependencies['process_task'],
+            start_metrics=mock_dependencies['metrics'],
+            run_dbt=mock_dependencies['dbt']
+        )
+    
+    process_task = mock_dependencies['process_task']
+    process_task.submit.assert_any_call(
+        "rockets", real_api=False, incremental=True
+    )
+    process_task.submit.assert_any_call(
+        "launches", real_api=False, incremental=True
+    )
