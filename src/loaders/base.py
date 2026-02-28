@@ -1,25 +1,25 @@
 import structlog
 from sqlalchemy import create_engine
-from src.config.settings import settings  # sempre do base.py
+from sqlalchemy.engine import Engine
 
 logger = structlog.get_logger()
 
 
 class DatabaseConnection:
-    """Shared SQLAlchemy engine.
-
-    This class creates a shared SQLAlchemy engine based on the
-    DATABASE_URL setting. It uses a pool of connections to
-    improve performance.
-
-    :param None: No parameters are needed.
-    :return None: No return value.
     """
-    def __init__(self):
-        self.engine = create_engine(
-            settings.DATABASE_URL,  # use the DATABASE_URL setting
-            pool_pre_ping=True,  # pre-ping connections to check for DB availability
-            pool_size=10,  # number of connections to maintain in the pool
-            max_overflow=20,  # maximum number of connections to allow
-            future=True,  # use the new (2.x) API
+    Base class para acesso a banco via SQLAlchemy.
+
+    Permite injetar DATABASE_URL para facilitar testes.
+    """
+
+    def __init__(self, database_url: str):
+        if not database_url:
+            raise ValueError("Database URL must be provided")
+        
+        self.engine: Engine = create_engine(
+            database_url,
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            future=True,
         )

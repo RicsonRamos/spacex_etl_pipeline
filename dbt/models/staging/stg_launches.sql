@@ -1,9 +1,31 @@
 {{ config(materialized='view') }}
 
 SELECT
-    launch_id::text AS launch_id,
+    launches_id::text AS launches_id,
+    rocket_id::text AS rocket_id,
     name AS launch_name,
     date_utc,
-    success AS is_success,
-    rocket::text AS rocket_id
+    success,
+    details,
+    fairings,
+    links,
+    static_fire_date_utc,
+    static_fire_date_unix,
+    net,
+    "window",
+    failures,
+    crew,
+    ships,
+    capsules,
+    payloads,
+    launchpad,
+    flight_number,
+    date_unix,
+    date_local,
+    date_precision,
+    upcoming,
+    cores,
+    auto_update,
+    tbd,
+    launch_library_id
 FROM {{ source('spacex_raw', 'silver_launches') }}

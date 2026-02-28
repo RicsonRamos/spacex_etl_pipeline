@@ -1,89 +1,87 @@
+# tests/unit/flows/test_tasks.py
+"""
+Testes para tasks do Prefect.
+Verifica orquestração de tasks com injeção de dependências.
+"""
+
 import pytest
 from unittest import mock
-from datetime import datetime
 import logging
-import sys
-from io import StringIO
+
 from src.flows.tasks import process_entity_task
-from src.utils.monitoring import EXTRACT_COUNT, SILVER_COUNT
 
-import logging
-# Desativa imediatamente ao importar
-logging.getLogger("prefect").disabled = True
-logging.getLogger("rich").disabled = True
+# Desativar logs verbosos
+logging.getLogger("prefect").setLevel(logging.ERROR)
 
-@pytest.fixture
-def suppress_prefect_io():
-    """Substitui stdout/stderr para evitar erro de I/O fechado."""
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
-    sys.stdout = StringIO()
-    sys.stderr = StringIO()
-    
-    # Desativa logs do prefect
-    logging.getLogger("prefect").setLevel(logging.CRITICAL)
-    
-    yield
-    
-    sys.stdout = old_stdout
-    sys.stderr = old_stderr
 
-@mock.patch("src.flows.tasks.BronzeLoader")
-@mock.patch("src.flows.tasks.SilverLoader")
-@mock.patch("src.flows.tasks.WatermarkManager")
-@mock.patch("src.flows.tasks.SchemaValidator")
-@mock.patch("src.flows.tasks.get_extractor")
-@mock.patch("src.flows.tasks.TransformerFactory")
-def test_process_entity_task(mock_transformer_factory, mock_get_extractor,
-                             mock_schema_validator, mock_watermark,
-                             mock_silver_loader, mock_bronze_loader, 
-                             suppress_prefect_io):
+class TestProcessEntityTask:
+    """Testes para a task de processamento de entidades."""
 
-    # Silenciar logs do Prefect
-    #caplog.set_level(logging.ERROR, logger="prefect")
-    
-    # Criar instâncias mock
-    extractor_instance = mock.Mock()
-    transformer_instance = mock.Mock()
-    bronze_loader_instance = mock.Mock()
-    silver_loader_instance = mock.Mock()
-    watermark_instance = mock.Mock()
-    schema_validator_instance = mock.Mock()
+    @mock.patch('src.flows.tasks.ETLFactory.create')
+    @mock.patch('src.flows.tasks.metrics')
+    def test_process_entity_task_rockets_success(self, mock_metrics, mock_create):
+        """Testa processamento bem-sucedido de rockets."""
+        # Arrange: Configurar mock do serviço
+        mock_service = mock.Mock()
+        mock_service.run.return_value = 10
+        mock_create.return_value = mock_service
 
-    # Configurar factories
-    mock_get_extractor.return_value = lambda: extractor_instance
-    mock_bronze_loader.return_value = bronze_loader_instance
-    mock_silver_loader.return_value = silver_loader_instance
-    mock_watermark.return_value = watermark_instance
-    mock_schema_validator.return_value = schema_validator_instance
-    mock_transformer_factory.create.return_value = transformer_instance
+        # Act: Executar task
+        result = process_entity_task("rockets", real_api=True, incremental=False)
 
-    # Configurar métodos
-    watermark_instance.get_last_ingested.return_value = datetime(2021, 1, 1)
-    extractor_instance.extract.return_value = [{"id": 1, "name": "rocket1"}]
-    
-    # DataFrame mock
-    df_mock = mock.Mock()
-    df_mock.empty = False
-    transformer_instance.transform.return_value = df_mock
-    
-    # ESSENCIAL: retornar int
-    silver_loader_instance.upsert.return_value = 1
+        # Assert: Verificar comportamento
+        mock_create.assert_called_once_with(
+            entity="rockets", incremental=False, real_api=True
+        )
+        mock_service.run.assert_called_once()
+        mock_metrics.inc_extract.assert_called_once_with("rockets", 1)
+        mock_metrics.inc_silver.assert_called_once_with("rockets", 1)
+        assert result == 10
 
-    # Resetar métricas
-    EXTRACT_COUNT.labels("rockets")._value.set(0)
-    SILVER_COUNT.labels("rockets")._value.set(0)
+    @mock.patch('src.flows.tasks.ETLFactory.create')
+    @mock.patch('src.flows.tasks.metrics')
+    def test_process_entity_task_launches_success(self, mock_metrics, mock_create):
+        """Testa processamento bem-sucedido de launches."""
+        mock_service = mock.Mock()
+        mock_service.run.return_value = 5
+        mock_create.return_value = mock_service
 
-    # REMOVER await - chamar diretamente
-    result = process_entity_task("rockets", real_api=False, incremental=True)
+        result = process_entity_task("launches", real_api=False, incremental=True)
 
-    # Asserts
-    assert result == 1
-    extractor_instance.extract.assert_called_once_with(real_api=False)
-    bronze_loader_instance.load.assert_called_once_with(
-        [{"id": 1, "name": "rocket1"}], 
-        entity="rockets", 
-        source="spacex_api_v5"
-    )
-    transformer_instance.transform.assert_called_once()
-    silver_loader_instance.upsert.assert_called_once()
+        mock_create.assert_called_once_with(
+            entity="launches", incremental=True, real_api=False
+        )
+        mock_service.run.assert_called_once()
+        mock_metrics.inc_extract.assert_called_once_with("launches", 1)
+        mock_metrics.inc_silver.assert_called_once_with("launches", 1)
+        assert result == 5
+
+    @mock.patch('src.flows.tasks.ETLFactory.create')
+    @mock.patch('src.flows.tasks.metrics')
+    def test_process_entity_task_service_failure(self, mock_metrics, mock_create):
+        """Testa quando o serviço falha."""
+        mock_service = mock.Mock()
+        mock_service.run.side_effect = Exception("Database connection failed")
+        mock_create.return_value = mock_service
+
+        with pytest.raises(Exception, match="Database connection failed"):
+            process_entity_task("rockets")
+        
+        # Métricas não devem ser atualizadas em caso de falha
+        mock_metrics.inc_extract.assert_not_called()
+        mock_metrics.inc_silver.assert_not_called()
+
+    @mock.patch('src.flows.tasks.ETLFactory.create')
+    @mock.patch('src.flows.tasks.metrics')
+    def test_process_entity_task_zero_result(self, mock_metrics, mock_create):
+        """Testa quando não há dados processados."""
+        mock_service = mock.Mock()
+        mock_service.run.return_value = 0
+        mock_create.return_value = mock_service
+
+        result = process_entity_task("rockets")
+
+        # Métricas são atualizadas mesmo com 0
+        mock_metrics.inc_extract.assert_called_once_with("rockets", 1)
+        mock_metrics.inc_silver.assert_called_once_with("rockets", 1)
+        assert result == 0

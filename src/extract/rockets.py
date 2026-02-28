@@ -1,8 +1,28 @@
+# src/extract/rockets.py
 from typing import List, Dict, Any
 import structlog
 from .base import BaseExtractor
 
 logger = structlog.get_logger()
+
+# Mock data embutido no módulo (não importa de tests!)
+DEFAULT_MOCK_ROCKETS = [
+    {
+        "id": "falcon9",
+        "name": "Falcon 9",
+        "active": True,
+        "cost_per_launch": 50000000,
+        "success_rate_pct": 98.5
+    },
+    {
+        "id": "falconheavy",
+        "name": "Falcon Heavy",
+        "active": True,
+        "cost_per_launch": 90000000,
+        "success_rate_pct": 100.0
+    }
+]
+
 
 class RocketExtract(BaseExtractor):
     """
@@ -26,5 +46,4 @@ class RocketExtract(BaseExtractor):
             return self.fetch(self.endpoint)
         else:
             logger.info("Returning mock rockets data")
-            from tests.unit.extract.conftest import MOCK_ROCKETS
-            return MOCK_ROCKETS
+            return DEFAULT_MOCK_ROCKETS  # ✅ Não importa de tests!

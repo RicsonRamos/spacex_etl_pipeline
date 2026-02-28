@@ -8,7 +8,7 @@ sources:
       - name: silver_launches
         description: "Dados de lançamentos limpos"
         columns:
-          - name: launch_id
+          - name: launches_id
             tests:
               - unique
               - not_null

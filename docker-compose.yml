@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:16-alpine
@@ -13,7 +15,6 @@ services:
       retries: 5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
     logging:
       driver: "json-file"
       options:
@@ -28,7 +29,6 @@ services:
       db:
         condition: service_healthy
     env_file: .env
-    # Sobrescrevemos o HOST para o nome do serviço no docker
     environment:
       - POSTGRES_HOST=db
       - DBT_PROFILES_DIR=/app/dbt
@@ -38,16 +38,26 @@ services:
       - .:/app
       - etl_logs:/app/logs
     restart: on-failure
-    
-    command: 
-      - sh
-      - -c
-      - |
-        while true; do
-          python -m src.flows.etl_flow
-          echo "Ciclo finalizado. Aguardando 1 hora..."
-          sleep 3600
-        done
+    command: >
+      sh -c "while true; do
+        python -m src.main --incremental;
+        echo 'Ciclo finalizado. Aguardando 1 hora...';
+        sleep 3600;
+      done"
+
+  tests:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - POSTGRES_HOST=db
+    networks:
+      - private_network
+    command: pytest tests/integration
 
 networks:
   private_network:

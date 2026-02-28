@@ -8,7 +8,7 @@ rockets AS (
 )
 
 SELECT
-    l.launch_id,
+    l.launches_id,
     l.launch_name,
     l.date_utc,
     l.is_success,

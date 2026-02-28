@@ -1,8 +1,28 @@
+# src/extract/launches.py
 from typing import List, Dict, Any
 from src.extract.base import BaseExtractor
 import structlog
 
 logger = structlog.get_logger()
+
+# Mock data embutido no módulo (não importa de tests!)
+DEFAULT_MOCK_LAUNCHES = [
+    {
+        "id": "launch1",
+        "name": "Starlink 1",
+        "date_utc": "2024-01-01T00:00:00Z",
+        "success": True,
+        "rocket": "falcon9"
+    },
+    {
+        "id": "launch2",
+        "name": "Starlink 2",
+        "date_utc": "2024-01-15T00:00:00Z",
+        "success": True,
+        "rocket": "falcon9"
+    }
+]
+
 
 class LaunchExtract(BaseExtractor):
     """
@@ -26,5 +46,4 @@ class LaunchExtract(BaseExtractor):
             return self.fetch(self.endpoint)
         else:
             logger.info("Returning mock launches data")
-            from tests.unit.extract.conftest import MOCK_LAUNCHES
-            return MOCK_LAUNCHES
+            return DEFAULT_MOCK_LAUNCHES  # ✅ Não importa de tests!
