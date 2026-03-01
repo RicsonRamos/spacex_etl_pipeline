@@ -1,26 +1,25 @@
-from src.extract.launches import LaunchExtract
-from src.extract.rockets import RocketExtract
-from src.extract.base import BaseExtractor
+from typing import Dict, Type
+from src.transformers.base import BaseTransformer
+from src.application.entity_schema import SCHEMAS
 
-EXTRACTORS = {
-    "launches": LaunchExtract,
-    "rockets": RocketExtract,
-}
+class TransformerFactory:
+    _registry: Dict[str, Type[BaseTransformer]] = {}
 
-def get_extractor(endpoint: str) -> type[BaseExtractor]:
-    """
-    Retorna a classe do extractor para o endpoint informado.
+    @classmethod
+    def register(cls, name: str, transformer_cls: Type[BaseTransformer]):
+        cls._registry[name] = transformer_cls
 
-    Args:
-        endpoint (str): O nome do endpoint.
+    @classmethod
+    def create(cls, name: str) -> BaseTransformer:
+        transformer_cls = cls._registry.get(name)
+        if not transformer_cls:
+            raise ValueError(f"Transformer {name} not found.")
+        
+        # Injeção automática do schema da Silver definido centralizadamente
+        return transformer_cls(columns_schema=SCHEMAS[name])
 
-    Returns:
-        type[BaseExtractor]: Classe do extractor.
-
-    Raises:
-        ValueError: Se o extractor não for encontrado.
-    """
-    cls = EXTRACTORS.get(endpoint)
-    if not cls:
-        raise ValueError(f"Extractor para endpoint '{endpoint}' não encontrado")
-    return cls  
+# Registro (Pode ser feito em um arquivo de inicialização de app)
+from src.transformers.launch import LaunchTransformer
+from src.transformers.rocket import RocketTransformer
+TransformerFactory.register("launches", LaunchTransformer)
+TransformerFactory.register("rockets", RocketTransformer)
