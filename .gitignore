@@ -1,1 +1,18 @@
+# Dados (Camadas Medallion)
 data/
+raw/
+processed/
+gold/
+viwes.ipynb
+
+# Python (Bytecode e Cache)
+**/__pycache__/
+*.pyc
+
+# Ambiente e Jupyter
+.env
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
