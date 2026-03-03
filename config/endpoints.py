@@ -4,5 +4,11 @@ ENDPOINTS_CONFIG = {
         "Schema": "SpacexLaunchesSchema",
         "layer": "bronze"
 
+    },
+    "Spacex_rockets": {
+        "url": "https://api.spacexdata.com/v4/rockets",
+        "Schema": "SpacexRocketsSchema",
+        "layer": "bronze"
+
     }
-    }
+}
