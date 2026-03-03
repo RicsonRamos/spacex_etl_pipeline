@@ -3,6 +3,9 @@ data/
 raw/
 processed/
 gold/
+dbt_spacex/targets/
+dbt_spacex/logs/
+dbt_spacex\.user.yml
 
 # Python (Bytecode e Cache)
 **/__pycache__/
