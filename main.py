@@ -1,44 +1,45 @@
+import os
+from dotenv import load_dotenv
 from config.endpoints import ENDPOINTS_CONFIG
 from src.extractors.concrete_extractors import APIExtractor
-from src.loaders.local_loader import LocalLoader
+from src.loaders.postgres_loader import PostgresLoader
 from src.utils.logger import get_logger
-from src.transformers.launches_transformer import LaunchTransformer
 
+# Rigor: Carregar env antes de qualquer instanciação que dependa de DB_URL
+load_dotenv()
 
 logger = get_logger("MainOrchestrator")
 
 def run_ingestion_engine():
-    logger.info("Iniciando Motor de Ingestão Multi-Endpoint")
+    logger.info("--- Iniciando Motor de Ingestão Enterprise (ELT) ---")
+    
+    # Instancia o loader apenas uma vez (reutilização de conexão/engine)
+    loader = PostgresLoader()
     
     for name, config in ENDPOINTS_CONFIG.items():
         try:
-            # 1. Instanciação dinâmica
+            logger.info(f"Processando endpoint: {name}")
+            
+            # 1. Extração
             extractor = APIExtractor(endpoint_name=name, url=config['url'])
-            logger.info(f"Pipeline para {name} iniciado com sucesso.")
-            
-            # 2. Extração
             raw_data = extractor.extract()
-            logger.info(f"Extração para {name} concluida com sucesso.")
-            logger.info(f"Quantidade de registros extraídos: {len(raw_data)}")
             
+            if raw_data.empty:
+                logger.warning(f"Extração vazia para {name}. Pulando etapa de carga.")
+                continue
+
+            # 2. Carga (Load para camada Bronze/Raw no Postgres)
+            # Rigor: No modelo ELT, o Python não limpa o dado, apenas persiste.
+            loader.load_bronze(raw_data, table_name=name)
             
-            # Salva raw (Bronze)
-            LocalLoader.save_raw(raw_data, dataset_name=name)
-            logger.info(f"Salva raw para {name}")
-            
-            # 2.5 Transformação
-            df_silver = LaunchTransformer.launches_transform(raw_data)
-            logger.info(f"Transformação para {name} concluida com sucesso.")
-            
-            # Salva Silver
-            LocalLoader.save_processed(df_silver, dataset_name=name)
-            logger.info(f"Salva processed para {name}")
-            
-            logger.info(f"Pipeline para {name} finalizado com sucesso.")
+            logger.info(f"Sucesso: {name} carregado no Banco de Dados.")
             
         except Exception as e:
-            logger.error(f"Falha no pipeline do endpoint '{name}': {e}")
+            logger.error(f"Erro crítico no pipeline '{name}': {str(e)}")
+            # Em sistemas enterprise, aqui você dispararia um alerta/sentry
             continue
+
+    logger.info("--- Motor de Ingestão finalizado ---")
 
 if __name__ == "__main__":
     run_ingestion_engine()
