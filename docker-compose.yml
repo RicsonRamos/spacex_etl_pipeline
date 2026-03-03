@@ -16,6 +16,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - db_postgres:/var/lib/postgresql/data
 
   # O Operário: Ingestão Python
   ingestion_engine:
@@ -29,14 +31,17 @@ services:
 
       
   # O Analista: dbt
+  # O Analista: dbt Transformation (Portável)
   dbt_transformation:
     image: ghcr.io/dbt-labs/dbt-postgres:1.5.0
     container_name: spacex_dbt
     volumes:
-      - ./dbt_spacex:/usr/app/dbt
-      - ~/.dbt:/root/.dbt
+      - ./dbt_spacex:/usr/app/dbt 
+    environment:
+      - DBT_PROFILES_DIR=/usr/app/dbt  
     working_dir: /usr/app/dbt
-    profiles:
-      - dbt_only # Permite rodar apenas quando solicitado
     depends_on:
-      - db_postgres
+      db_postgres:
+        condition: service_healthy
+volumes:
+  db_postgres: 
