@@ -3,7 +3,6 @@ data/
 raw/
 processed/
 gold/
-viwes.ipynb
 
 # Python (Bytecode e Cache)
 **/__pycache__/

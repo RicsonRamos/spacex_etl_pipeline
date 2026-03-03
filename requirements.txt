@@ -1,5 +1,6 @@
-pandas 
+pandas
 requests
-dotenv
+sqlalchemy
+psycopg2-binary
+python-dotenv
 pyarrow
-fastparquet

@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # O Coração: Banco de Dados OLAP
+  db_postgres:
+    image: postgres:15
+    container_name: spacex_postgres
+    environment:
+      POSTGRES_DB: spacex_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d spacex_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # O Operário: Ingestão Python
+  ingestion_engine:
+    build: .
+    container_name: spacex_ingestion
+    depends_on:
+      db_postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+
+      
+  # O Analista: dbt
+  dbt_transformation:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.5.0
+    container_name: spacex_dbt
+    volumes:
+      - ./dbt_spacex:/usr/app/dbt
+      - ~/.dbt:/root/.dbt
+    working_dir: /usr/app/dbt
+    profiles:
+      - dbt_only # Permite rodar apenas quando solicitado
+    depends_on:
+      - db_postgres

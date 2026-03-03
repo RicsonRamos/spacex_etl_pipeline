@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: spacex_api
+    database: spacex_db
+    schema: raw
+    tables:
+      - name: Spacex_launches  # Rigor: Deve ser IDÊNTICO ao nome criado pelo Python
