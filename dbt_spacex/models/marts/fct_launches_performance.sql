@@ -16,6 +16,8 @@ SELECT
     r.rocket_name,
     r.rocket_type,
     r.cost_per_launch,
+    l.loaded_at AS launch_loaded_at,
+    r.loaded_at AS rocket_loaded_at,
     CASE 
         WHEN l.is_success THEN r.cost_per_launch
         ELSE 0

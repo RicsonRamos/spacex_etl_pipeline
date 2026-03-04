@@ -15,7 +15,37 @@ models:
         tests:
           - unique
           - not_null
+      - name: rocket_id
+        description: "Identificador do foguete utilizado no lançamento."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_rockets')
+              field: rocket_id
       - name: launch_date
         description: "Data do lançamento convertida para TIMESTAMP."
         tests:
           - not_null
+
+  - name: stg_rockets
+    description: "Limpeza e tipagem dos dados brutos de foguetes da SpaceX."
+    columns:
+      - name: rocket_id
+        description: 'Dimensão de foguetes com custos operacionais e outros detalhes.'
+        columns:
+          - name: rocket_id
+            description: "Chave primária do foguete."
+            tests:
+              - unique
+              - not_null
+          - name: cost_per_launch
+            description: "Custo por lançamento do foguete."
+            tests:
+              - not_null
+              - dbt_utils.accepted_range:
+                  min_value: 0
+          - name: success_rate_pct
+            description: "Taxa de sucesso do foguete em porcentagem."
+            tests:
+              - not_null
+          
