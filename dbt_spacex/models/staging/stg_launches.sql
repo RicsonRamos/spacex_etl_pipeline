@@ -3,11 +3,13 @@
 WITH raw_data AS (
     -- O nome dentro do source() deve bater com o 'name' do arquivo .yml acima
     SELECT 
-        id as mission_id,
-        name as mission_name,
-        CAST(date_utc AS TIMESTAMP) as launch_date,
-        success as is_success,
-        rocket as rocket_id
+        id AS mission_id,
+        name AS mission_name,
+        CAST(date_utc AS TIMESTAMP) AS launch_date,
+        success AS is_success,
+        rocket AS rocket_id,
+        loaded_at, -- Metadado de timestamp para rtreabilidade
+        now() AS last_updated
     FROM {{ source('spacex_api', 'Spacex_launches') }}
 )
 
