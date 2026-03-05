@@ -6,6 +6,11 @@ gold/
 dbt_spacex/targets/
 dbt_spacex/logs/
 dbt_spacex\.user.yml
+logs/
+plugins/
+airflow.cfg
+airflow.db
+db_postgres_data/
 
 # Python (Bytecode e Cache)
 **/__pycache__/
