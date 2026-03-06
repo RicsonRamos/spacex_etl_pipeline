@@ -35,7 +35,7 @@ services:
     networks:
       - spacex_network
 
-  # Airflow Webserver
+# Airflow Webserver
   airflow-webserver:
     image: apache/airflow:2.7.1
     container_name: airflow_webserver
@@ -47,6 +47,8 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    # CORREÇÃO: Comando explícito para iniciar o webserver
+    command: webserver 
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_postgres:5432/${POSTGRES_DB}
@@ -70,6 +72,8 @@ services:
         condition: service_completed_successfully
     env_file:
       - .env
+    # CORREÇÃO: Comando explícito para iniciar o scheduler
+    command: scheduler
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_postgres:5432/${POSTGRES_DB}
@@ -78,7 +82,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
-      - /var/run/docker.sock:/var/run/docker.sock # ESSENCIAL PARA O DOCKEROPERATOR
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - spacex_network
 
