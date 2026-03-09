@@ -1,31 +1,75 @@
-{{ config(materialized='table') }}
+{{ config(
+    materialized='table',
+    schema='gold'
+) }}
 
-WITH launches AS (
-    SELECT * FROM {{ ref('stg_launches') }}
+WITH stg_launches AS (
+    SELECT * FROM {{ ref('stg_spacex__launches') }}
+    WHERE is_success = TRUE -- Focamos em missões concluídas para análise de ROI
 ),
 
-rockets AS (
-    SELECT * FROM {{ ref('stg_rockets') }}
+stg_rockets AS (
+    SELECT * FROM {{ ref('stg_spacex__rockets') }}
+),
+
+stg_payloads AS (
+    SELECT * FROM {{ ref('stg_spacex__payloads') }}
+),
+
+-- Agregação de massa por lançamento (Explodindo o array de payloads)
+payload_aggregation AS (
+    SELECT 
+        l.launch_id,
+        SUM(p.mass_kg) AS total_payload_mass_kg
+    FROM stg_launches l
+    CROSS JOIN LATERAL jsonb_array_elements_text(l.payload_ids::jsonb) AS p_id
+    LEFT JOIN stg_payloads p ON p.payload_id = p_id
+    GROUP BY 1
+),
+
+-- Identificação de risco solar (CMEs no dia do lançamento ou 24h antes)
+solar_risk AS (
+    SELECT 
+        l.launch_id,
+        COUNT(s.event_id) AS solar_events_count,
+        MAX(s.speed_km_s) AS max_solar_speed_km_s
+    FROM stg_launches l
+    LEFT JOIN {{ ref('stg_nasa__solar_events') }} s 
+        ON s.event_at_utc BETWEEN (l.launch_at_utc - INTERVAL '24 hours') AND l.launch_at_utc
+    GROUP BY 1
+),
+
+final_metrics AS (
+    SELECT
+        l.launch_id,
+        l.launch_name,
+        l.launch_at_utc,
+        r.rocket_name,
+        r.cost_per_launch_usd,
+        pa.total_payload_mass_kg,
+        
+        -- KPI 1: Eficiência Financeira (Custo por Kg)
+        CASE 
+            WHEN pa.total_payload_mass_kg > 0 
+            THEN (r.cost_per_launch_usd / pa.total_payload_mass_kg)
+            ELSE 0 
+        END AS usd_per_kg,
+
+        -- KPI 2: Score de Risco (NASA)
+        COALESCE(sr.solar_events_count, 0) AS count_cme_events,
+        COALESCE(sr.max_solar_speed_km_s, 0) AS peak_cme_speed,
+
+        -- KPI 3: Margem de Segurança de Ativo
+        CASE 
+            WHEN sr.max_solar_speed_km_s > 1000 THEN 'HIGH RISK'
+            WHEN sr.max_solar_speed_km_s > 500 THEN 'MEDIUM RISK'
+            ELSE 'LOW RISK'
+        END AS mission_risk_profile
+
+    FROM stg_launches l
+    JOIN stg_rockets r ON l.rocket_id = r.rocket_id
+    LEFT JOIN payload_aggregation pa ON l.launch_id = pa.launch_id
+    LEFT JOIN solar_risk sr ON l.launch_id = sr.launch_id
 )
 
-SELECT
-    l.mission_id,
-    l.mission_name,
-    l.launch_date,
-    l.is_success,
-    r.rocket_name,
-    r.rocket_type,
-    r.cost_per_launch,
-    l.loaded_at AS launch_loaded_at,
-    r.loaded_at AS rocket_loaded_at,
-    CASE 
-        WHEN l.is_success THEN r.cost_per_launch
-        ELSE 0
-    END AS estimated_loss,
-    -- Metadados para analises futuras
-    EXTRACT(YEAR FROM l.launch_date) AS launch_year,
-    EXTRACT(MONTH FROM l.launch_date) AS launch_month,
-    EXTRACT(DAY FROM l.launch_date) AS launch_day,
-    EXTRACT(HOUR FROM l.launch_date) AS launch_hour
-FROM launches l
-left JOIN rockets r ON l.rocket_id = r.rocket_id
+SELECT * FROM final_metrics

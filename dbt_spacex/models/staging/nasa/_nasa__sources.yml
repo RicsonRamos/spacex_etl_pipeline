@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: nasa_raw  
+    description: "Dados de clima espacial da NASA DONKI (Camada Bronze)."
+    database: spacex_db
+    schema: raw
+    loader: python_ingestion_engine
+    tables:
+      - name: nasa_solar_events 
+        description: "Ejeções de Massa Coronal (CME)."
+        columns:
+          - name: '"activityID"'
+            tests:
+              - not_null
+        tests:
+          - dbt_utils.recency:
+              datepart: day
+              field: ingestion_timestamp
+              interval: 1
