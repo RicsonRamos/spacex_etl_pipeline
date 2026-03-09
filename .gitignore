@@ -11,6 +11,12 @@ plugins/
 airflow.cfg
 airflow.db
 db_postgres_data/
+dbt_spacex/target/
+dbt_spacex/dbt_packages/
+dbt_spacex/logs/
+.venv/
+__pycache__/
+*.pyc
 
 # Python (Bytecode e Cache)
 **/__pycache__/
