@@ -18,3 +18,28 @@ sources:
               datepart: day
               field: ingestion_timestamp
               interval: 1
+
+      - name: nasa_raw
+        tables:
+        - name: nasa_solar_events
+          description: "Ejeções de Massa Coronal (CME)."
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 48, period: hour}
+          loaded_at_field: ingestion_timestamp
+
+models: 
+  - name: nasa_solar_events
+    description: "Ejeções de Massa Coronal (CME)."
+    columns:
+      - name: event_id
+        description: "Identificador único do evento."
+        tests:
+          - not_null
+          - unique
+      - name: speed_km_s
+        description: "Velocidade da ejeção em km/s."
+        tests:
+          - dbt_utils.acceptable_range:
+              min: 0
+              max: 5000
