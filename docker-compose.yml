@@ -70,6 +70,7 @@ services:
     build: .
     container_name: spacex_ingestion
     env_file: .env
+    command: python main.py
     depends_on:
       db_postgres:
         condition: service_healthy
