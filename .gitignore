@@ -1,31 +1,69 @@
-# Dados (Camadas Medallion)
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.*
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# DBT
+# =========================
+dbt_spacex/target/
+dbt_spacex/logs/
+dbt_spacex/dbt_packages/
+dbt_spacex/.user.yml
+
+# =========================
+# Airflow
+# =========================
+airflow.cfg
+airflow.db
+plugins/
+
+# =========================
+# Docker volumes
+# =========================
+db_postgres_data/
+
+# =========================
+# Data layers (Medallion)
+# =========================
 data/
 raw/
 processed/
 gold/
-dbt_spacex/targets/
-dbt_spacex/logs/
-dbt_spacex\.user.yml
-logs/
-plugins/
-airflow.cfg
-airflow.db
-db_postgres_data/
-dbt_spacex/target/
-dbt_spacex/dbt_packages/
-dbt_spacex/logs/
-.venv/
-__pycache__/
-*.pyc
 
-# Python (Bytecode e Cache)
-**/__pycache__/
-*.pyc
-
-# Ambiente e Jupyter
-.env
-.ipynb_checkpoints/
-
+# =========================
 # IDEs
+# =========================
 .vscode/
 .idea/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
