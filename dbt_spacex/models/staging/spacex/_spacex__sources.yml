@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: spacex_raw
+    description: "Dados brutos da API SpaceX v4 (Camada Bronze)."
+    database: spacex_db
+    schema: raw
+    loader: python_ingestion_engine
+    
+    tables:
+      - name: spacex_launches
+        description: "Histórico e planejamento de missões."
+        tests:
+          - unique:
+              column_name: id
+          - not_null:
+              column_name: id
+          - dbt_utils.recency:
+              datepart: day
+              field: ingestion_timestamp
+              interval: 1
+
+      - name: spacex_rockets
+        description: "Especificações técnicas e custos fixos por modelo."
+
+      - name: spacex_payloads
+        description: "Dados de carga útil para cálculo de eficiência (kg/USD)."
+
+      - name: spacex_cores
+        description: "Rastreamento de boosters para análise de ROI de reuso."

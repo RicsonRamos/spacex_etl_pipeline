@@ -1,12 +1,12 @@
-spacex_project:
+spacex_project: 
   target: dev
   outputs:
     dev:
       type: postgres
-      host: db_postgres  # Nome do serviço no Docker Compose
-      user: admin
-      password: password
+      host: spacex_postgres
+      user: "{{ env_var('POSTGRES_USER') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
       port: 5432
-      dbname: spacex_db
+      dbname: "{{ env_var('POSTGRES_DB') }}"
       schema: public
       threads: 4
