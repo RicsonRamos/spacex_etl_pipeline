@@ -1,7 +1,7 @@
 version: '3.8'
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.7.1
+  image: apache/airflow:2.10.2
   env_file: .env
   environment:
     &airflow-env
@@ -11,6 +11,10 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
     AIRFLOW_UID: 0
     _PIP_ADDITIONAL_REQUIREMENTS: dbt-postgres==1.5.0
+    DOCKER_API_VERSION: '1.44' 
+    DOCKER_HOST: unix:///var/run/docker.sock
+    # RIGOR: Injeção do caminho absoluto do host para o Airflow usar no DockerOperator
+    DBT_PROJECT_PATH_ON_HOST: "${PWD}/dbt_spacex"
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -68,12 +72,9 @@ services:
 
   ingestion_engine:
     build: .
+    image: spacex_etl_pipeline-ingestion_engine
     container_name: spacex_ingestion
     env_file: .env
-    command: python main.py
-    depends_on:
-      db_postgres:
-        condition: service_healthy
     networks:
       - spacex_network
 

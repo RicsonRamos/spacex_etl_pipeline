@@ -4,15 +4,17 @@ from docker.types import Mount
 from datetime import datetime, timedelta
 import os
 
-# Rigor: Centralizando caminhos para evitar hardcoding
-DBT_PROJECT_PATH_INSIDE_AIRFLOW = '/opt/airflow/dbt'
+# RIGOR: O Airflow captura o caminho absoluto injetado pelo Docker Compose
+# Isso resolve o problema de deploy (funciona em Windows, Linux ou Mac)
+DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST')
+DOCKER_API_VERSION = '1.44'
 
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
     'start_date': datetime(2026, 3, 1),
     'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'retry_delay': timedelta(seconds=30),
 }
 
 with DAG(
@@ -27,65 +29,52 @@ with DAG(
     ingest_data = DockerOperator(
         task_id='ingest_data',
         image='spacex_etl_pipeline-ingestion_engine',
-        container_name='airflow_ingestion_run',
-        api_version='auto',
+        api_version=DOCKER_API_VERSION,
         auto_remove=True,
         docker_url='unix://var/run/docker.sock',
         network_mode='spacex_etl_pipeline_default',
-        mount_tmp_dir=False
+        mount_tmp_dir=False,
+        environment={
+            'DOCKER_API_VERSION': DOCKER_API_VERSION,
+            'NASA_API_KEY': os.getenv('NASA_API_KEY')
+        }
     )
 
-    # TASK 2: dbt Deps + Run (Silver & Gold)
-    # Rigor: dbt run sem dbt deps em ambiente efêmero resulta em erro de compilação.
+    # Configuração centralizada para evitar redundância
+    dbt_common_config = {
+        'image': 'ghcr.io/dbt-labs/dbt-postgres:1.5.0',
+        'api_version': DOCKER_API_VERSION,
+        'auto_remove': True,
+        'docker_url': 'unix://var/run/docker.sock',
+        'network_mode': 'spacex_etl_pipeline_default',
+        'mount_tmp_dir': False,
+        'working_dir': '/usr/app/dbt',
+        'mounts': [
+            Mount(source=DBT_PROJECT_PATH, target='/usr/app/dbt', type='bind')
+        ],
+        'environment': {
+            'DBT_PROFILES_DIR': '/usr/app/dbt',
+            'DB_HOST': 'spacex_postgres',
+            'DOCKER_API_VERSION': DOCKER_API_VERSION
+        }
+    }
+
+    dbt_freshness = DockerOperator(
+        task_id='dbt_freshness',
+        command='/bin/bash -c "dbt source freshness"',
+        **dbt_common_config
+    )
+
     dbt_run = DockerOperator(
         task_id='dbt_run',
-        image='ghcr.io/dbt-labs/dbt-postgres:1.5.0',
-        container_name='airflow_dbt_run',
-        api_version='auto',
-        auto_remove=True,
-        docker_url='unix://var/run/docker.sock',
-        network_mode='spacex_etl_pipeline_default',
-        # Executamos deps e run na mesma task para garantir consistência
         command='/bin/bash -c "dbt deps && dbt run"', 
-        mount_tmp_dir=False,
-        mounts=[
-            Mount(
-                # O segredo: o Airflow pega o código do volume que ele mesmo já tem montado
-                source='spacex_etl_pipeline_db_postgres_data', # Nome do volume ou caminho relativo mapeado no compose
-                target='/usr/app/dbt', 
-                type='volume' 
-            )
-        ],
-        working_dir='/usr/app/dbt',
-        environment={
-            'DBT_PROFILES_DIR': '/usr/app/dbt',
-            'DB_HOST': 'spacex_postgres' # Garante que o container dbt ache o banco
-        }
+        **dbt_common_config
     )
 
-    # TASK 3: dbt Test (Qualidade)
     dbt_test = DockerOperator(
         task_id='dbt_test',
-        image='ghcr.io/dbt-labs/dbt-postgres:1.5.0',
-        container_name='airflow_dbt_test',
-        api_version='auto',
-        auto_remove=True,
-        docker_url='unix://var/run/docker.sock',
-        network_mode='spacex_etl_pipeline_default',
-        command='test',
-        mount_tmp_dir=False,
-        mounts=[
-            Mount(
-                source='spacex_etl_pipeline_db_postgres_data', 
-                target='/usr/app/dbt', 
-                type='volume'
-            )
-        ],
-        working_dir='/usr/app/dbt',
-        environment={
-            'DBT_PROFILES_DIR': '/usr/app/dbt',
-            'DB_HOST': 'spacex_postgres'
-        }
+        command='/bin/bash -c "dbt test"',
+        **dbt_common_config
     )
 
-    ingest_data >> dbt_run >> dbt_test
+    ingest_data >> dbt_freshness >> dbt_run >> dbt_test
