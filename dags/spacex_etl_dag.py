@@ -4,8 +4,7 @@ from docker.types import Mount
 from datetime import datetime, timedelta
 import os
 
-# RIGOR: O Airflow captura o caminho absoluto injetado pelo Docker Compose
-# Isso resolve o problema de deploy (funciona em Windows, Linux ou Mac)
+# RIGOR: Captura o caminho absoluto injetado pelo Compose. Fim do Hardcoding.
 DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST')
 DOCKER_API_VERSION = '1.44'
 
@@ -30,7 +29,7 @@ with DAG(
         task_id='ingest_data',
         image='spacex_etl_pipeline-ingestion_engine',
         api_version=DOCKER_API_VERSION,
-        auto_remove=True,
+        auto_remove='success',
         docker_url='unix://var/run/docker.sock',
         network_mode='spacex_etl_pipeline_default',
         mount_tmp_dir=False,
@@ -40,40 +39,48 @@ with DAG(
         }
     )
 
-    # Configuração centralizada para evitar redundância
+   # Configuração centralizada atualizada
     dbt_common_config = {
         'image': 'ghcr.io/dbt-labs/dbt-postgres:1.5.0',
         'api_version': DOCKER_API_VERSION,
-        'auto_remove': True,
+        'auto_remove': 'success',
         'docker_url': 'unix://var/run/docker.sock',
         'network_mode': 'spacex_etl_pipeline_default',
         'mount_tmp_dir': False,
-        'working_dir': '/usr/app/dbt',
+        'working_dir': '/usr/app',
+        # O PULO DO GATO: Sobrescrevemos o Entrypoint para aceitar shell
+        'entrypoint': ["/bin/sh", "-c"],
         'mounts': [
-            Mount(source=DBT_PROJECT_PATH, target='/usr/app/dbt', type='bind')
+            Mount(source=DBT_PROJECT_PATH, target='/usr/app', type='bind')
         ],
         'environment': {
-            'DBT_PROFILES_DIR': '/usr/app/dbt',
+            'DBT_PROFILES_DIR': '.',
             'DB_HOST': 'spacex_postgres',
+            'POSTGRES_USER': os.getenv('POSTGRES_USER'),
+            'POSTGRES_PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+            'POSTGRES_DB': os.getenv('POSTGRES_DB'),
             'DOCKER_API_VERSION': DOCKER_API_VERSION
         }
     }
 
+    # Agora os comandos devem ser apenas a string final, sem repetir 'sh -c'
     dbt_freshness = DockerOperator(
         task_id='dbt_freshness',
-        command='/bin/bash -c "dbt source freshness"',
+        command='dbt source freshness --profiles-dir . --target docker',
         **dbt_common_config
     )
 
     dbt_run = DockerOperator(
         task_id='dbt_run',
-        command='/bin/bash -c "dbt deps && dbt run"', 
+        # dbt deps garante que os pacotes existam antes do run
+        command='dbt deps && dbt run --profiles-dir . --target docker', 
         **dbt_common_config
     )
 
     dbt_test = DockerOperator(
         task_id='dbt_test',
-        command='/bin/bash -c "dbt test"',
+        # O dbt_test também precisa dos pacotes para compilar os testes corretamente
+        command='dbt deps && dbt test --profiles-dir . --target docker',
         **dbt_common_config
     )
 

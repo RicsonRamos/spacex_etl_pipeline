@@ -14,6 +14,8 @@ x-airflow-common: &airflow-common
     DOCKER_API_VERSION: '1.44' 
     DOCKER_HOST: unix:///var/run/docker.sock
     AIRFLOW__LOGGING__DAG_PROCESSOR_LOG_TARGET: stdout
+    # RIGOR: Esta variável captura o caminho do seu Windows/Linux automaticamente
+    DBT_PROJECT_PATH_ON_HOST: "${PWD}/dbt_spacex"
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs

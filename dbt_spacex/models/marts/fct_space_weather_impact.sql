@@ -28,4 +28,4 @@ SELECT
 FROM launches l
 LEFT JOIN solar_events s 
     ON s.event_at_utc BETWEEN l.launch_at_utc - INTERVAL '7 days' 
-                         AND l.launch_at_utc + INTERVAL '7 days'z
+                         AND l.launch_at_utc + INTERVAL '7 days'
