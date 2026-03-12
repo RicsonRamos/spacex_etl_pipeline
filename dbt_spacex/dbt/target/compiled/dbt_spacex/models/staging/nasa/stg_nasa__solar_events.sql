@@ -1,7 +1,7 @@
-{{ config(materialized='view') }}
+
 
 WITH raw_nasa AS (
-    SELECT * FROM {{ source('nasa_raw', 'nasa_solar_events') }}
+    SELECT * FROM "spacex_db"."raw"."nasa_solar_events"
 ), -- <--- Esta vírgula é obrigatória para separar as CTEs
 
 flattened AS (

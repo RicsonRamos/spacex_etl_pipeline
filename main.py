@@ -24,7 +24,7 @@ def preflight_check(df: pd.DataFrame, endpoint_name: str) -> bool:
     # Exemplo de Validação de Contrato (Campos Críticos)
     critical_columns = {
         "spacex_launches": ["id", "flight_number", "date_utc"],
-        "nasa_solar_events": ["activityID", "eventTime"]
+        "nasa_solar_events": ["activityID", "startTime"]
     }
     
     if endpoint_name in critical_columns:

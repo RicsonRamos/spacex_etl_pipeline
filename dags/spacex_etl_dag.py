@@ -20,7 +20,7 @@ default_args = {
 with DAG(
     'spacex_full_pipeline',
     default_args=default_args,
-    schedule_interval="@daily",
+    schedule='@daily',
     catchup=False,
     tags=['finance', 'spacex', 'nasa']
 ) as dag:

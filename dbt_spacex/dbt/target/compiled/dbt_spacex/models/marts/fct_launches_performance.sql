@@ -1,19 +1,16 @@
-{{ config(
-    materialized='table',
-    schema='gold'
-) }}
+
 
 WITH stg_launches AS (
-    SELECT * FROM {{ ref('stg_spacex__launches') }}
+    SELECT * FROM "spacex_db"."public"."stg_spacex__launches"
     WHERE is_success = TRUE -- Focamos em missões concluídas para análise de ROI
 ),
 
 stg_rockets AS (
-    SELECT * FROM {{ ref('stg_spacex__rockets') }}
+    SELECT * FROM "spacex_db"."public"."stg_spacex__rockets"
 ),
 
 stg_payloads AS (
-    SELECT * FROM {{ ref('stg_spacex__payloads') }}
+    SELECT * FROM "spacex_db"."public"."stg_spacex__payloads"
 ),
 
 -- Agregação de massa por lançamento (Explodindo o array de payloads)
@@ -34,7 +31,7 @@ solar_risk AS (
         COUNT(s.activityID) AS solar_events_count,
         MAX(s.speed_km_s) AS max_solar_speed_km_s
     FROM stg_launches l
-    LEFT JOIN {{ ref('stg_nasa__solar_events') }} s 
+    LEFT JOIN "spacex_db"."public"."stg_nasa__solar_events" s 
         ON s.event_at_utc BETWEEN (l.launch_at_utc - INTERVAL '24 hours') AND l.launch_at_utc
     GROUP BY 1
 ),

@@ -1,4 +1,14 @@
-{{ config(materialized='table', schema='gold') }}
+
+  
+    
+
+  create  table "spacex_db"."public_gold"."fct_spacex_launch_roi__dbt_tmp"
+  
+  
+    as
+  
+  (
+    
 
 WITH expanded_launches AS (
     -- Explodindo a lista de payloads para conseguir fazer o JOIN
@@ -6,7 +16,7 @@ WITH expanded_launches AS (
         id AS launch_id,
         rocket AS rocket_id,
         jsonb_array_elements_text(payloads::jsonb) AS payload_id
-    FROM {{ source('spacex_raw', 'spacex_launches') }}
+    FROM "spacex_db"."raw"."spacex_launches"
 ),
 
 launch_metrics AS (
@@ -15,7 +25,7 @@ launch_metrics AS (
         el.rocket_id,
         SUM(p.mass_kg) as total_payload_mass_kg
     FROM expanded_launches el
-    JOIN {{ ref('stg_spacex__payloads') }} p ON el.payload_id = p.payload_id
+    JOIN "spacex_db"."public"."stg_spacex__payloads" p ON el.payload_id = p.payload_id
     GROUP BY 1, 2
 )
 
@@ -30,4 +40,6 @@ SELECT
         ELSE NULL 
     END as usd_per_kg
 FROM launch_metrics m
-JOIN {{ ref('stg_spacex__rockets') }} r ON m.rocket_id = r.rocket_id
+JOIN "spacex_db"."public"."stg_spacex__rockets" r ON m.rocket_id = r.rocket_id
+  );
+  

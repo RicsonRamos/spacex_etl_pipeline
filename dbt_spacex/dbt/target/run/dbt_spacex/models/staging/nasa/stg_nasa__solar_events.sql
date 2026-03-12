@@ -1,7 +1,12 @@
-{{ config(materialized='view') }}
+
+  create view "spacex_db"."public"."stg_nasa__solar_events__dbt_tmp"
+    
+    
+  as (
+    
 
 WITH raw_nasa AS (
-    SELECT * FROM {{ source('nasa_raw', 'nasa_solar_events') }}
+    SELECT * FROM "spacex_db"."raw"."nasa_solar_events"
 ), -- <--- Esta vírgula é obrigatória para separar as CTEs
 
 flattened AS (
@@ -23,3 +28,4 @@ flattened AS (
 
 SELECT * FROM flattened
 WHERE speed_km_s IS NOT NULL
+  );
