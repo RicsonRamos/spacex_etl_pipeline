@@ -3,13 +3,24 @@ from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 from datetime import datetime, timedelta
 import os
+import logging # RIGOR: Use o logging nativo para evitar ModuleNotFoundError
 
-# RIGOR: Captura o caminho absoluto injetado pelo Compose. Fim do Hardcoding.
+# Configuração de log padrão do Airflow
+logger = logging.getLogger("airflow.task")
+
+def on_failure_callback(context):
+    task_id = context.get('task_instance').task_id
+    execution_date = context.get('execution_date')
+    log_url = context.get('task_instance').log_url
+    logger.error(f'Task {task_id} failed on {execution_date}. Logs: {log_url}')
+
+# Captura caminhos e versões
 DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST')
 DOCKER_API_VERSION = '1.44'
 
 default_args = {
     'owner': 'airflow',
+    'on_failure_callback': on_failure_callback,
     'depends_on_past': False,
     'start_date': datetime(2026, 3, 1),
     'retries': 1,
@@ -39,16 +50,16 @@ with DAG(
         }
     )
 
-   # Configuração centralizada atualizada
+    # Configuração centralizada otimizada (Image Baking)
     dbt_common_config = {
-        'image': 'ghcr.io/dbt-labs/dbt-postgres:1.5.0',
+        # RIGOR: Usando sua imagem customizada que já tem os pacotes
+        'image': 'spacex_dbt_custom:latest', 
         'api_version': DOCKER_API_VERSION,
         'auto_remove': 'success',
         'docker_url': 'unix://var/run/docker.sock',
         'network_mode': 'spacex_etl_pipeline_default',
         'mount_tmp_dir': False,
         'working_dir': '/usr/app',
-        # O PULO DO GATO: Sobrescrevemos o Entrypoint para aceitar shell
         'entrypoint': ["/bin/sh", "-c"],
         'mounts': [
             Mount(source=DBT_PROJECT_PATH, target='/usr/app', type='bind')
@@ -63,7 +74,6 @@ with DAG(
         }
     }
 
-    # Agora os comandos devem ser apenas a string final, sem repetir 'sh -c'
     dbt_freshness = DockerOperator(
         task_id='dbt_freshness',
         command='dbt source freshness --profiles-dir . --target docker',
@@ -72,15 +82,14 @@ with DAG(
 
     dbt_run = DockerOperator(
         task_id='dbt_run',
-        # dbt deps garante que os pacotes existam antes do run
-        command='dbt deps && dbt run --profiles-dir . --target docker', 
+        # RIGOR: dbt deps removido pois já está na imagem custom
+        command='dbt run --profiles-dir . --target docker', 
         **dbt_common_config
     )
 
     dbt_test = DockerOperator(
         task_id='dbt_test',
-        # O dbt_test também precisa dos pacotes para compilar os testes corretamente
-        command='dbt deps && dbt test --profiles-dir . --target docker',
+        command='dbt test --profiles-dir . --target docker',
         **dbt_common_config
     )
 

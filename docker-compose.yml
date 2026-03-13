@@ -14,7 +14,6 @@ x-airflow-common: &airflow-common
     DOCKER_API_VERSION: '1.44' 
     DOCKER_HOST: unix:///var/run/docker.sock
     AIRFLOW__LOGGING__DAG_PROCESSOR_LOG_TARGET: stdout
-    # RIGOR: Esta variável captura o caminho do seu Windows/Linux automaticamente
     DBT_PROJECT_PATH_ON_HOST: "${PWD}/dbt_spacex"
   volumes:
     - ./dags:/opt/airflow/dags
@@ -33,9 +32,9 @@ services:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     volumes:
       - db_postgres_data:/var/lib/postgresql/data
     networks:
@@ -44,16 +43,27 @@ services:
   airflow-init:
     <<: *airflow-common
     container_name: airflow_init
+    user: "0:0" # RIGOR: Entra como root temporariamente para ajustar permissões
     entrypoint: /bin/bash
     command:
       - -c
       - |
-        airflow db init &&
-        airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@admin.com --password admin
+        # Ajuste de permissões em tempo de execução
+        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
+        chown -R 50000:0 /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
+        chmod -R 775 /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
+        
+        echo "Aguardando Postgres..."
+        until pg_isready -h db_postgres -p 5432 -U ${POSTGRES_USER}; do
+          sleep 2
+        done
+        
+        echo "Postgres pronto. Inicializando DB..."
+        # Executa o restante como o usuário airflow (50000)
+        su -c "airflow db init && airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@admin.com --password admin" airflow
     depends_on:
       db_postgres:
         condition: service_healthy
-
   airflow-webserver:
     <<: *airflow-common
     container_name: airflow_webserver
@@ -74,30 +84,45 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # RIGOR: Deixamos o build aqui para o Airflow usar a imagem, 
+  # mas removemos o comando de execução automática para não conflitar com a DAG.
   ingestion_engine:
     build: .
     image: spacex_etl_pipeline-ingestion_engine
     container_name: spacex_ingestion
     env_file: .env
-    depends_on:
-      db_postgres:
-        condition: service_healthy
+    profiles: ["debug"] # Só sobe via compose se você chamar explicitamente
     networks:
       - spacex_network
 
   dbt_transform:
-    image: ghcr.io/dbt-labs/dbt-postgres:1.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile.dbt
+    image: spacex_dbt_custom:latest
     container_name: spacex_dbt
     env_file: .env
-    volumes:
-      - ./dbt_spacex:/usr/app
-    working_dir: /usr/app
-    depends_on:
-      ingestion_engine:
-        condition: service_completed_successfully
+    profiles: ["debug"] # Evita que rode sozinho antes da hora
     networks:
       - spacex_network
-    command: run --profiles-dir . --target docker
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: spacex_bi
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${POSTGRES_DB}
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_HOST: spacex_postgres
+    networks:
+      - spacex_network
+    depends_on:
+      db_postgres:
+        condition: service_healthy
 
 networks:
   spacex_network:

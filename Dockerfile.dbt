@@ -1,0 +1,11 @@
+FROM ghcr.io/dbt-labs/dbt-postgres:1.5.0
+
+WORKDIR /usr/app
+
+# Copia o projeto dbt para dentro da imagem
+COPY ./dbt_spacex .
+
+# RIGOR: Apenas instala dependências. Não tenta conectar ao banco.
+RUN dbt deps --profiles-dir .
+
+ENTRYPOINT [ "dbt" ]
