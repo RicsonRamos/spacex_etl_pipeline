@@ -35,18 +35,21 @@ with DAG(
     tags=['finance', 'spacex', 'nasa']
 ) as dag:
 
-    # TASK 1: Ingestão (Bronze)
+        # TASK 1: Ingestão (Bronze) - CORRIGIDO
     ingest_data = DockerOperator(
         task_id='ingest_data',
-        image='spacex_etl_pipeline-ingestion_engine',
+        image='spacex_etl_pipeline-ingestion_engine:latest',
         api_version=DOCKER_API_VERSION,
         auto_remove='success',
         docker_url='unix://var/run/docker.sock',
         network_mode='spacex_etl_pipeline_default',
         mount_tmp_dir=False,
+        force_pull=False,
         environment={
             'DOCKER_API_VERSION': DOCKER_API_VERSION,
-            'NASA_API_KEY': os.getenv('NASA_API_KEY')
+            'NASA_API_KEY': os.getenv('NASA_API_KEY'),
+            # CRÍTICO: URL completa que o PostgresLoader espera
+            'DATABASE_URL': f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@spacex_postgres:5432/{os.getenv('POSTGRES_DB')}",
         }
     )
 

@@ -11,7 +11,9 @@ WORKDIR /app
 
 # Copia e instala dependências Python primeiro para aproveitar o cache de camadas
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# CRÍTICO: Instalar numpy primeiro, depois pandas/pyarrow
+RUN pip install --no-cache-dir numpy==1.26.4 && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copia o restante do código
 COPY . .
