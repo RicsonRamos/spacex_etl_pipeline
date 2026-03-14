@@ -2,14 +2,21 @@ version: 2
 
 sources:
   - name: spacex_raw
-    description: "Dados brutos da API SpaceX v4 (Camada Bronze)."
+    description: "Dados brutos extraídos da API SpaceX v4 (Camada Bronze)."
     database: spacex_db
     schema: raw
     loader: python_ingestion_engine
     
+    # Configuração de Freshness padrão para todas as tabelas desta fonte
+    freshness:
+      warn_after: {count: 24, period: hour}
+      error_after: {count: 48, period: hour}
+    
+    loaded_at_field: ingestion_timestamp
+
     tables:
       - name: spacex_launches
-        description: "Histórico e planejamento de missões."
+        description: "Histórico e planejamento de missões (lançamentos)."
         tests:
           - unique:
               column_name: id
@@ -21,10 +28,37 @@ sources:
               interval: 1
 
       - name: spacex_rockets
-        description: "Especificações técnicas e custos fixos por modelo."
+        description: "Especificações técnicas e custos fixos por modelo de foguete."
+        tests:
+          - unique:
+              column_name: id
+          - not_null:
+              column_name: id
+          - dbt_utils.recency:
+              datepart: day
+              field: ingestion_timestamp
+              interval: 1
 
       - name: spacex_payloads
-        description: "Dados de carga útil para cálculo de eficiência (kg/USD)."
+        description: "Dados de carga útil (satélites e suprimentos) para cálculo de eficiência."
+        tests:
+          - unique:
+              column_name: id
+          - not_null:
+              column_name: id
+          - dbt_utils.recency:
+              datepart: day
+              field: ingestion_timestamp
+              interval: 1
 
       - name: spacex_cores
-        description: "Rastreamento de boosters para análise de ROI de reuso."
+        description: "Rastreamento de núcleos (boosters) para análise de reutilização e ROI."
+        tests:
+          - unique:
+              column_name: id
+          - not_null:
+              column_name: id
+          - dbt_utils.recency:
+              datepart: day
+              field: ingestion_timestamp
+              interval: 1

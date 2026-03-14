@@ -1,9 +1,19 @@
-spacex_project: 
-  target: dev
+spacex_project:
+  target: docker
   outputs:
-    dev:
+    local:
       type: postgres
-      host: spacex_postgres
+      host: localhost  # Para uso local fora do Docker
+      user: "{{ env_var('POSTGRES_USER') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      port: 5432
+      dbname: "{{ env_var('POSTGRES_DB') }}"
+      schema: public
+      threads: 4
+
+    docker:
+      type: postgres
+      host: spacex_postgres  # Nome do serviço no Docker Compose
       user: "{{ env_var('POSTGRES_USER') }}"
       password: "{{ env_var('POSTGRES_PASSWORD') }}"
       port: 5432

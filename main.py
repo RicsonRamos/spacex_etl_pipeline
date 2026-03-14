@@ -2,10 +2,13 @@ import os
 import datetime
 import pandas as pd
 from dotenv import load_dotenv
-from config.endpoints import ENDPOINTS_CONFIG
+from config import endpoints
+from config.endpoints import get_endpoints_config
 from src.extractors.concrete_extractors import APIExtractor
 from src.loaders.postgres_loader import PostgresLoader
 from src.utils.logger import get_logger
+from src.utils.notifications import AlertSystem
+
 
 load_dotenv()
 logger = get_logger("MainOrchestrator")
@@ -21,7 +24,7 @@ def preflight_check(df: pd.DataFrame, endpoint_name: str) -> bool:
     # Exemplo de Validação de Contrato (Campos Críticos)
     critical_columns = {
         "spacex_launches": ["id", "flight_number", "date_utc"],
-        "nasa_solar_events": ["activityID", "eventTime"]
+        "nasa_solar_events": ["activityID", "startTime"]
     }
     
     if endpoint_name in critical_columns:
@@ -39,8 +42,10 @@ def preflight_check(df: pd.DataFrame, endpoint_name: str) -> bool:
 def run_ingestion_engine():
     logger.info("--- Iniciando Motor de Ingestão Enterprise (ELT) ---")
     loader = PostgresLoader()
+    alert_maneger = AlertSystem()
 
-    for name, config in ENDPOINTS_CONFIG.items():
+    endpoints = get_endpoints_config()
+    for name, config in endpoints.items():
         try:
             logger.info(f"Processando endpoint: {name}")
             
@@ -55,6 +60,8 @@ def run_ingestion_engine():
 
             # PRE-FLIGHT CHECK
             if not preflight_check(raw_data, name):
+                msg = f"Falha na qualidade dos dados para {name}. Verifique os logs para detalhes."
+                alert_maneger.notify_critical_failure(name, msg, serverity="WARNING")
                 logger.error(f"Abortando ingestão de {name} por falha na qualidade pré-vôo.")
                 continue
             
@@ -67,6 +74,7 @@ def run_ingestion_engine():
             logger.info(f"{name} carregado na camada bronze")
 
         except Exception as e:
+            alert_maneger.notify_critical_failure(name, str(e))
             logger.error(f"Erro no pipeline {name}: {str(e)}")
             continue
 

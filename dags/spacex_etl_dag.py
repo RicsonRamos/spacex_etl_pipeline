@@ -3,22 +3,34 @@ from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 from datetime import datetime, timedelta
 import os
+import logging # RIGOR: Use o logging nativo para evitar ModuleNotFoundError
 
-# Rigor: Centralizando caminhos para evitar hardcoding
-DBT_PROJECT_PATH_INSIDE_AIRFLOW = '/opt/airflow/dbt'
+# Configuração de log padrão do Airflow
+logger = logging.getLogger("airflow.task")
+
+def on_failure_callback(context):
+    task_id = context.get('task_instance').task_id
+    execution_date = context.get('execution_date')
+    log_url = context.get('task_instance').log_url
+    logger.error(f'Task {task_id} failed on {execution_date}. Logs: {log_url}')
+
+# Captura caminhos e versões
+DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST')
+DOCKER_API_VERSION = '1.44'
 
 default_args = {
     'owner': 'airflow',
+    'on_failure_callback': on_failure_callback,
     'depends_on_past': False,
     'start_date': datetime(2026, 3, 1),
     'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'retry_delay': timedelta(seconds=30),
 }
 
 with DAG(
     'spacex_full_pipeline',
     default_args=default_args,
-    schedule_interval="@daily",
+    schedule='@daily',
     catchup=False,
     tags=['finance', 'spacex', 'nasa']
 ) as dag:
@@ -27,65 +39,58 @@ with DAG(
     ingest_data = DockerOperator(
         task_id='ingest_data',
         image='spacex_etl_pipeline-ingestion_engine',
-        container_name='airflow_ingestion_run',
-        api_version='auto',
-        auto_remove=True,
+        api_version=DOCKER_API_VERSION,
+        auto_remove='success',
         docker_url='unix://var/run/docker.sock',
         network_mode='spacex_etl_pipeline_default',
-        mount_tmp_dir=False
+        mount_tmp_dir=False,
+        environment={
+            'DOCKER_API_VERSION': DOCKER_API_VERSION,
+            'NASA_API_KEY': os.getenv('NASA_API_KEY')
+        }
     )
 
-    # TASK 2: dbt Deps + Run (Silver & Gold)
-    # Rigor: dbt run sem dbt deps em ambiente efêmero resulta em erro de compilação.
+    # Configuração centralizada otimizada (Image Baking)
+    dbt_common_config = {
+        # RIGOR: Usando sua imagem customizada que já tem os pacotes
+        'image': 'spacex_dbt_custom:latest', 
+        'api_version': DOCKER_API_VERSION,
+        'auto_remove': 'success',
+        'docker_url': 'unix://var/run/docker.sock',
+        'network_mode': 'spacex_etl_pipeline_default',
+        'mount_tmp_dir': False,
+        'working_dir': '/usr/app',
+        'entrypoint': ["/bin/sh", "-c"],
+        'mounts': [
+            Mount(source=DBT_PROJECT_PATH, target='/usr/app', type='bind')
+        ],
+        'environment': {
+            'DBT_PROFILES_DIR': '.',
+            'DB_HOST': 'spacex_postgres',
+            'POSTGRES_USER': os.getenv('POSTGRES_USER'),
+            'POSTGRES_PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+            'POSTGRES_DB': os.getenv('POSTGRES_DB'),
+            'DOCKER_API_VERSION': DOCKER_API_VERSION
+        }
+    }
+
+    dbt_freshness = DockerOperator(
+        task_id='dbt_freshness',
+        command='dbt source freshness --profiles-dir . --target docker',
+        **dbt_common_config
+    )
+
     dbt_run = DockerOperator(
         task_id='dbt_run',
-        image='ghcr.io/dbt-labs/dbt-postgres:1.5.0',
-        container_name='airflow_dbt_run',
-        api_version='auto',
-        auto_remove=True,
-        docker_url='unix://var/run/docker.sock',
-        network_mode='spacex_etl_pipeline_default',
-        # Executamos deps e run na mesma task para garantir consistência
-        command='/bin/bash -c "dbt deps && dbt run"', 
-        mount_tmp_dir=False,
-        mounts=[
-            Mount(
-                # O segredo: o Airflow pega o código do volume que ele mesmo já tem montado
-                source='spacex_etl_pipeline_db_postgres_data', # Nome do volume ou caminho relativo mapeado no compose
-                target='/usr/app/dbt', 
-                type='volume' 
-            )
-        ],
-        working_dir='/usr/app/dbt',
-        environment={
-            'DBT_PROFILES_DIR': '/usr/app/dbt',
-            'DB_HOST': 'spacex_postgres' # Garante que o container dbt ache o banco
-        }
+        # RIGOR: dbt deps removido pois já está na imagem custom
+        command='dbt run --profiles-dir . --target docker', 
+        **dbt_common_config
     )
 
-    # TASK 3: dbt Test (Qualidade)
     dbt_test = DockerOperator(
         task_id='dbt_test',
-        image='ghcr.io/dbt-labs/dbt-postgres:1.5.0',
-        container_name='airflow_dbt_test',
-        api_version='auto',
-        auto_remove=True,
-        docker_url='unix://var/run/docker.sock',
-        network_mode='spacex_etl_pipeline_default',
-        command='test',
-        mount_tmp_dir=False,
-        mounts=[
-            Mount(
-                source='spacex_etl_pipeline_db_postgres_data', 
-                target='/usr/app/dbt', 
-                type='volume'
-            )
-        ],
-        working_dir='/usr/app/dbt',
-        environment={
-            'DBT_PROFILES_DIR': '/usr/app/dbt',
-            'DB_HOST': 'spacex_postgres'
-        }
+        command='dbt test --profiles-dir . --target docker',
+        **dbt_common_config
     )
 
-    ingest_data >> dbt_run >> dbt_test
+    ingest_data >> dbt_freshness >> dbt_run >> dbt_test
