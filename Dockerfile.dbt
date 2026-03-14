@@ -1,11 +1,19 @@
+# Imagem base oficial do dbt para Postgres
 FROM ghcr.io/dbt-labs/dbt-postgres:1.5.0
 
+# Define diretório de trabalho
 WORKDIR /usr/app
 
 # Copia o projeto dbt para dentro da imagem
-COPY ./dbt_spacex .
+COPY ./dbt_spacex ./
 
-# RIGOR: Apenas instala dependências. Não tenta conectar ao banco.
+# Instala dependências do projeto dbt
+# Não tenta conectar ao banco, apenas resolve packages
 RUN dbt deps --profiles-dir .
 
-ENTRYPOINT [ "dbt" ]
+# Define variáveis de ambiente para facilitar execução no container
+ENV DBT_PROFILES_DIR=/usr/app
+ENV DBT_TARGET=docker
+
+# Define o entrypoint padrão
+ENTRYPOINT ["dbt"]

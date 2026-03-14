@@ -1,19 +1,19 @@
 spacex_project:
-  target: local  # Mude para 'docker' quando rodar via Airflow/Container
+  target: docker
   outputs:
     local:
       type: postgres
-      host: localhost  # O Windows enxerga o Postgres mapeado aqui
+      host: localhost  # Para uso local fora do Docker
       user: "{{ env_var('POSTGRES_USER') }}"
       password: "{{ env_var('POSTGRES_PASSWORD') }}"
       port: 5432
       dbname: "{{ env_var('POSTGRES_DB') }}"
       schema: public
       threads: 4
-    
+
     docker:
       type: postgres
-      host: spacex_postgres  # Nome do serviço na rede do Docker
+      host: spacex_postgres  # Nome do serviço no Docker Compose
       user: "{{ env_var('POSTGRES_USER') }}"
       password: "{{ env_var('POSTGRES_PASSWORD') }}"
       port: 5432

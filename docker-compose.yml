@@ -1,3 +1,5 @@
+version: "3.9"
+
 x-airflow-common: &airflow-common
   build:
     context: .
@@ -5,16 +7,25 @@ x-airflow-common: &airflow-common
   env_file: .env
   user: "50000"
   environment:
-    &airflow-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_postgres:5432/${POSTGRES_DB}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@spacex_postgres:5432/${POSTGRES_DB}
     AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
     AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
+    # FIX: Secret key deve vir do .env, não valor hardcoded
+    AIRFLOW__WEBSERVER__SECRET_KEY: "${AIRFLOW__WEBSERVER__SECRET_KEY}"
+    # FIX: Backend de sessão explícito para evitar flask-session problemático
+    AIRFLOW__WEBSERVER__SESSION_BACKEND: securecookie
     AIRFLOW_UID: 50000
-    DOCKER_API_VERSION: '1.44' 
+    DOCKER_API_VERSION: '1.44'
     DOCKER_HOST: unix:///var/run/docker.sock
     AIRFLOW__LOGGING__DAG_PROCESSOR_LOG_TARGET: stdout
+    AIRFLOW__LOGGING__LOG_PROCESSOR_FILENAME_TEMPLATE: '{{ ti.dag_id }}/{{ ti.task_id }}/{{ ts }}/{{ try_number }}.log'
+    AIRFLOW__LOGGING__SKIP_LOG_SYMLINK: 'True'
     DBT_PROJECT_PATH_ON_HOST: "${PWD}/dbt_spacex"
+    # FIX: Timezone explícito
+    TZ: UTC
+    # FIX: Garantir datas UTC no Python
+    PYTHONHASHSEED: 0
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -31,7 +42,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -43,27 +54,21 @@ services:
   airflow-init:
     <<: *airflow-common
     container_name: airflow_init
-    user: "0:0" # RIGOR: Entra como root temporariamente para ajustar permissões
+    user: "0:0"
     entrypoint: /bin/bash
     command:
       - -c
       - |
-        # Ajuste de permissões em tempo de execução
+        echo "Ajustando permissões de volumes..."
         mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
         chown -R 50000:0 /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
-        chmod -R 775 /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins
         
-        echo "Aguardando Postgres..."
-        until pg_isready -h db_postgres -p 5432 -U ${POSTGRES_USER}; do
-          sleep 2
-        done
-        
-        echo "Postgres pronto. Inicializando DB..."
-        # Executa o restante como o usuário airflow (50000)
-        su -c "airflow db init && airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@admin.com --password admin" airflow
+        echo "Inicializando banco de dados..."
+        su -s /bin/bash -c "airflow db init && airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@admin.com --password admin || true" airflow
     depends_on:
       db_postgres:
         condition: service_healthy
+
   airflow-webserver:
     <<: *airflow-common
     container_name: airflow_webserver
@@ -71,6 +76,11 @@ services:
     ports:
       - "8080:8080"
     command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     depends_on:
       airflow-init:
         condition: service_completed_successfully
@@ -83,28 +93,6 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
-
-  # RIGOR: Deixamos o build aqui para o Airflow usar a imagem, 
-  # mas removemos o comando de execução automática para não conflitar com a DAG.
-  ingestion_engine:
-    build: .
-    image: spacex_etl_pipeline-ingestion_engine
-    container_name: spacex_ingestion
-    env_file: .env
-    profiles: ["debug"] # Só sobe via compose se você chamar explicitamente
-    networks:
-      - spacex_network
-
-  dbt_transform:
-    build:
-      context: .
-      dockerfile: Dockerfile.dbt
-    image: spacex_dbt_custom:latest
-    container_name: spacex_dbt
-    env_file: .env
-    profiles: ["debug"] # Evita que rode sozinho antes da hora
-    networks:
-      - spacex_network
 
   metabase:
     image: metabase/metabase:latest

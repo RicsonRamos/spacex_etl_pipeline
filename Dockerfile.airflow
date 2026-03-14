@@ -1,9 +1,30 @@
-FROM apache/airflow:2.10.2
+# Base oficial do Airflow
+FROM apache/airflow:2.10.2-python3.11
+
+# Troca para root para instalar dependências de sistema
 USER root
+
+# Instala dependências essenciais
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    tzdata \
     && apt-get autoremove -yqq --purge \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Define timezone (evita erros de datetime offset)
+ENV TZ=UTC
+
+# Volta para usuário airflow
 USER airflow
-RUN pip install --no-cache-dir pandas sqlalchemy psycopg2-binary
+
+# Instala pacotes Python essenciais com PINAGEM RIGOROSA
+# FIX: flask-session<0.6.0 evita erro de datetime offset-aware
+RUN pip install --no-cache-dir \
+    pandas \
+    sqlalchemy \
+    psycopg2-binary \
+    apache-airflow-providers-postgres \
+    apache-airflow-providers-docker \
+    "flask-session<0.6.0" \
+    "werkzeug<3.0.0"
