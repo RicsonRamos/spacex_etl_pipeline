@@ -53,15 +53,15 @@ with DAG(
         }
     )
 
-    # Configuração centralizada otimizada (Image Baking)
+   # Configuração centralizada otimizada (Image Baking)
     dbt_common_config = {
-        # RIGOR: Usando sua imagem customizada que já tem os pacotes
         'image': 'spacex_dbt_custom:latest', 
         'api_version': DOCKER_API_VERSION,
         'auto_remove': 'success',
         'docker_url': 'unix://var/run/docker.sock',
         'network_mode': 'spacex_etl_pipeline_default',
         'mount_tmp_dir': False,
+        'force_pull': False,  # <-- CRÍTICO: Adicionar aqui
         'working_dir': '/usr/app',
         'entrypoint': ["/bin/sh", "-c"],
         'mounts': [
