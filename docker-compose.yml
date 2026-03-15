@@ -47,6 +47,17 @@ services:
     networks:
       - spacex_network
 
+  # NOVO: Serviço de build da imagem de ingestão (não roda, só builda)
+  ingestion-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spacex_etl_pipeline-ingestion_engine:latest
+    container_name: ingestion_engine_build
+    entrypoint: ["echo", "Imagem de ingestão construída com sucesso"]
+    networks:
+      - spacex_network
+
   airflow-init:
     <<: *airflow-common
     container_name: airflow_init
@@ -80,6 +91,8 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+      ingestion-engine:
+        condition: service_completed_successfully
 
   airflow-scheduler:
     <<: *airflow-common
@@ -88,6 +101,8 @@ services:
     command: scheduler
     depends_on:
       airflow-init:
+        condition: service_completed_successfully
+      ingestion-engine:
         condition: service_completed_successfully
 
   metabase:
@@ -112,6 +127,8 @@ services:
       JAVA_OPTS: "-Xmx1g -Xms512m"
       MB_CHECK_FOR_UPDATES: "false"
       MB_ANON_TRACKING_ENABLED: "false"
+    volumes:
+      - metabase_data:/metabase-data
     networks:
       - spacex_network
     depends_on:
@@ -131,3 +148,4 @@ networks:
 
 volumes:
   db_postgres_data:
+  metabase_data:
