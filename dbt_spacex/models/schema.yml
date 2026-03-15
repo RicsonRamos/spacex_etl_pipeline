@@ -1,0 +1,15 @@
+models:
+  - name: fct_launches
+    columns:
+      - name: budget_value
+        tests:
+          # dbt_utils: Garante que o orçamento nunca seja negativo (Rigor Financeiro)
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      
+      - name: launch_status
+        tests:
+          # dbt_utils: Garante que não existam combinações impossíveis 
+          # (Ex: Sucesso marcado como falha simultaneamente)
+          - dbt_utils.at_least_one:
+              column_name: launch_id

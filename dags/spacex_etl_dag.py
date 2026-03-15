@@ -96,4 +96,10 @@ with DAG(
         **dbt_common_config
     )
 
-    ingest_data >> dbt_deps >> dbt_freshness >> dbt_run >> dbt_test
+    dbt_docs = DockerOperator(
+        task_id='dbt_docs',
+        command='docs generate --target docker',
+        **dbt_common_config
+    )
+
+    ingest_data >> dbt_deps >> dbt_freshness >> dbt_run >> dbt_test >> dbt_docs

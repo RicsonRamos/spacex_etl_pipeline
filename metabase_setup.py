@@ -1,54 +1,96 @@
 #!/usr/bin/env python3
 """
-Script de bootstrap do Metabase - Configura admin e conexão com banco automaticamente
+Metabase bootstrap script
+Configura automaticamente admin e conexão com banco
 """
-import requests
-import time
+
 import os
 import sys
+import time
+import requests
 
-METABASE_URL = os.getenv("MB_SETUP_URL", "http://metabase:3000")
-ADMIN_EMAIL = os.getenv("MB_ADMIN_EMAIL", "admin@spacex.local")
-ADMIN_PASSWORD = os.getenv("MB_ADMIN_PASSWORD", "SpaceX2026!")
-ADMIN_FIRST_NAME = os.getenv("MB_ADMIN_FIRST_NAME", "SpaceX")
-ADMIN_LAST_NAME = os.getenv("MB_ADMIN_LAST_NAME", "Admin")
+from dotenv import load_dotenv
+from utils.logger import get_logger
 
-# Configuração do banco SpaceX
-DB_HOST = os.getenv("POSTGRES_HOST", "spacex_postgres")
-DB_PORT = os.getenv("POSTGRES_PORT", "5432")
-DB_NAME = os.getenv("POSTGRES_DB", "spacex_db")
-DB_USER = os.getenv("POSTGRES_USER", "admin")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
+# ------------------------------
+# ENV
+# ------------------------------
+
+load_dotenv()
+
+logger = get_logger("MainOrchestrator")
+
+
+def get_env(name: str):
+    """Busca variável obrigatória"""
+    value = os.getenv(name)
+
+    if not value:
+        logger.error(f"Environment variable not set: {name}")
+        sys.exit(1)
+
+    return value
+
+
+# ------------------------------
+# METABASE CONFIG
+# ------------------------------
+
+METABASE_URL = get_env("MB_SETUP_URL")
+
+ADMIN_EMAIL = get_env("MB_ADMIN_EMAIL")
+ADMIN_PASSWORD = get_env("MB_ADMIN_PASSWORD")
+ADMIN_FIRST_NAME = get_env("MB_ADMIN_FIRST_NAME")
+ADMIN_LAST_NAME = get_env("MB_ADMIN_LAST_NAME")
+
+# ------------------------------
+# DATABASE CONFIG
+# ------------------------------
+
+DB_HOST = get_env("POSTGRES_HOST")
+DB_PORT = get_env("POSTGRES_PORT")
+DB_NAME = get_env("POSTGRES_DB")
+DB_USER = get_env("POSTGRES_USER")
+DB_PASSWORD = get_env("POSTGRES_PASSWORD")
+
 
 def wait_for_metabase(timeout=300):
-    """Aguarda o Metabase ficar pronto"""
-    print(" Aguardando Metabase iniciar...")
+    """Aguarda Metabase iniciar"""
+
+    logger.info("Waiting for Metabase to start...")
+
     start = time.time()
+
     while time.time() - start < timeout:
         try:
             resp = requests.get(f"{METABASE_URL}/api/health", timeout=5)
+
             if resp.status_code == 200 and resp.json().get("status") == "ok":
-                print(" Metabase está pronto!")
+                logger.info("Metabase is ready")
                 return True
-        except:
+
+        except Exception:
             pass
+
         time.sleep(2)
-    print(" Timeout aguardando Metabase")
+
+    logger.error("Timeout waiting for Metabase")
     return False
 
+
 def setup_admin():
-    """Cria usuário admin via API de setup"""
-    print(f"🔧 Criando admin: {ADMIN_EMAIL}")
-    
-    # Verifica se já existe setup
+    """Cria admin via API"""
+
+    logger.info("Creating admin user")
+
     try:
         resp = requests.get(f"{METABASE_URL}/api/session/properties", timeout=10)
         props = resp.json()
-        
-        # Se já tem setup-token, significa que ainda não foi configurado
+
         if "setup-token" in props and props["setup-token"]:
+
             token = props["setup-token"]
-            
+
             payload = {
                 "token": token,
                 "user": {
@@ -63,54 +105,59 @@ def setup_admin():
                     "allow_tracking": False
                 }
             }
-            
-            resp = requests.post(f"{METABASE_URL}/api/setup", json=payload, timeout=30)
+
+            resp = requests.post(
+                f"{METABASE_URL}/api/setup",
+                json=payload,
+                timeout=30
+            )
+
             if resp.status_code == 200:
-                print(f" Admin criado: {ADMIN_EMAIL}")
-                return resp.json().get("id")
-            else:
-                print(f" Erro no setup: {resp.text}")
-                return None
+                logger.info("Admin created successfully")
+                return True
+
+            logger.error(f"Metabase setup error: {resp.text}")
+
         else:
-            print(" Setup já realizado anteriormente")
+            logger.info("Metabase already configured")
             return True
-            
+
     except Exception as e:
-        print(f" Erro: {e}")
-        return None
+        logger.error(f"Error during admin setup: {e}")
+
+    return False
+
 
 def login_and_get_token():
-    """Login e retorna token de sessão"""
+    """Login no Metabase"""
+
     try:
-        resp = requests.post(f"{METABASE_URL}/api/session", json={
-            "username": ADMIN_EMAIL,
-            "password": ADMIN_PASSWORD
-        }, timeout=10)
-        
+        resp = requests.post(
+            f"{METABASE_URL}/api/session",
+            json={
+                "username": ADMIN_EMAIL,
+                "password": ADMIN_PASSWORD
+            },
+            timeout=10
+        )
+
         if resp.status_code == 200:
-            return resp.json().get("id")
+            logger.info("Login successful")
+            return resp.json()["id"]
+
     except Exception as e:
-        print(f" Erro no login: {e}")
+        logger.error(f"Login error: {e}")
+
     return None
 
+
 def setup_database_connection(session_token):
-    """Configura conexão com banco SpaceX"""
-    print(f"🔌 Configurando conexão com banco: {DB_NAME}")
-    
+    """Configura conexão postgres"""
+
+    logger.info("Configuring database connection")
+
     headers = {"X-Metabase-Session": session_token}
-    
-    # Verifica se conexão já existe
-    try:
-        resp = requests.get(f"{METABASE_URL}/api/database", headers=headers, timeout=10)
-        databases = resp.json().get("data", [])
-        
-        for db in databases:
-            if db.get("name") == "SpaceX Production":
-                print(" Conexão 'SpaceX Production' já existe")
-                return True
-    except:
-        pass
-    
+
     payload = {
         "engine": "postgres",
         "name": "SpaceX Production",
@@ -120,63 +167,52 @@ def setup_database_connection(session_token):
             "dbname": DB_NAME,
             "user": DB_USER,
             "password": DB_PASSWORD,
-            "ssl": False,
-            "tunnel-enabled": False
-        },
-        "auto_run_queries": True,
-        "is_full_sync": True,
-        "is_on_demand": False
+            "ssl": False
+        }
     }
-    
+
     try:
-        resp = requests.post(f"{METABASE_URL}/api/database", 
-                           headers=headers, 
-                           json=payload, 
-                           timeout=30)
-        
+        resp = requests.post(
+            f"{METABASE_URL}/api/database",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
         if resp.status_code == 200:
-            print(f" Conexão 'SpaceX Production' criada!")
+            logger.info("Database connection created")
             return True
-        else:
-            print(f" Erro ao criar conexão: {resp.text}")
-            return False
+
+        logger.error(f"Database creation failed: {resp.text}")
+
     except Exception as e:
-        print(f" Erro: {e}")
-        return False
+        logger.error(f"Database setup error: {e}")
+
+    return False
+
 
 def main():
-    print(" Iniciando setup automático do Metabase...")
-    
+
+    logger.info("Starting Metabase bootstrap process")
+
     if not wait_for_metabase():
         sys.exit(1)
-    
-    # Setup admin
-    admin_ok = setup_admin()
-    if not admin_ok:
-        print(" Falha no setup do admin, tentando continuar...")
-    
-    # Aguarda um pouco após setup
+
+    setup_admin()
+
     time.sleep(5)
-    
-    # Login e configuração do banco
-    session_token = login_and_get_token()
-    if not session_token:
-        print(" Não foi possível fazer login")
+
+    token = login_and_get_token()
+
+    if not token:
+        logger.error("Login failed")
         sys.exit(1)
-    
-    print("Login realizado com sucesso")
-    
-    # Configura banco
-    if setup_database_connection(session_token):
-        print("\nMetabase totalmente configurado!")
-        print(f"Acesse: http://localhost:3000")
-        print(f"Email: {ADMIN_EMAIL}")
-        print(f"Senha: {ADMIN_PASSWORD}")
-        print(f"Banco: SpaceX Production")
-        return 0
+
+    if setup_database_connection(token):
+        logger.info("Metabase fully configured")
     else:
-        print("Configuração do banco falhou")
-        return 1
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
