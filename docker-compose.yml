@@ -106,62 +106,84 @@ services:
         condition: service_completed_successfully
 
   metabase:
-    image: metabase/metabase:latest
-    container_name: spacex_bi
-    ports:
-      - "3000:3000"
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: ${POSTGRES_DB}
-      MB_DB_PORT: 5432
-      MB_DB_USER: ${POSTGRES_USER}
-      MB_DB_PASS: ${POSTGRES_PASSWORD}
-      MB_DB_HOST: spacex_postgres
-      MB_SETUP_TOKEN: ""
-      MB_SITE_NAME: "SpaceX Analytics"
-      MB_SITE_URL: "http://localhost:3000"
-      MB_EMAIL_FROM_ADDRESS: "admin@spacex.local"
-      JAVA_OPTS: "-Xmx1g -Xms512m"
-      MB_CHECK_FOR_UPDATES: "false"
-      MB_ANON_TRACKING_ENABLED: "false"
-    volumes:
-      - metabase_data:/metabase-data
-    networks:
-      - spacex_network
-    depends_on:
-      db_postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
-    restart: unless-stopped
+  image: metabase/metabase:latest
+  container_name: spacex_bi
 
-   # NOVO: Serviço de setup automático
-  metabase-setup:
-    build:
-      context: .
-      dockerfile: Dockerfile.metabase-setup
-    container_name: metabase_setup
-    environment:
-      MB_SETUP_URL: http://spacex_bi:3000
-      MB_ADMIN_EMAIL: admin@spacex.local
-      MB_ADMIN_PASSWORD: SpaceX2026!
-      MB_ADMIN_FIRST_NAME: SpaceX
-      MB_ADMIN_LAST_NAME: Admin
-      POSTGRES_HOST: spacex_postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    networks:
-      - spacex_network
-    depends_on:
-      metabase:
-        condition: service_healthy
-    restart: "no"  # Roda uma vez só
+  ports:
+    - "3000:3000"
+
+  env_file:
+    - .env
+
+  environment:
+    MB_DB_TYPE: postgres
+    MB_DB_DBNAME: ${POSTGRES_DB}
+    MB_DB_PORT: ${POSTGRES_PORT}
+    MB_DB_USER: ${POSTGRES_USER}
+    MB_DB_PASS: ${POSTGRES_PASSWORD}
+    MB_DB_HOST: ${POSTGRES_HOST}
+
+    MB_SETUP_TOKEN: ""
+    MB_SITE_NAME: ${MB_SITE_NAME}
+    MB_SITE_URL: ${MB_SITE_URL}
+    MB_EMAIL_FROM_ADDRESS: ${MB_EMAIL_FROM_ADDRESS}
+
+    JAVA_OPTS: "-Xmx1g -Xms512m"
+    MB_CHECK_FOR_UPDATES: "false"
+    MB_ANON_TRACKING_ENABLED: "false"
+
+  volumes:
+    - metabase_data:/metabase-data
+
+  networks:
+    - spacex_network
+
+  depends_on:
+    db_postgres:
+      condition: service_healthy
+
+  healthcheck:
+    test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
+    interval: 15s
+    timeout: 5s
+    retries: 10
+    start_period: 60s
+
+  restart: unless-stopped
+
+
+metabase-setup:
+  build:
+    context: .
+    dockerfile: Dockerfile.metabase-setup
+
+  container_name: metabase_setup
+
+  env_file:
+    - .env
+
+  environment:
+    MB_SETUP_URL: ${MB_SETUP_URL}
+
+    MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL}
+    MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD}
+    MB_ADMIN_FIRST_NAME: ${MB_ADMIN_FIRST_NAME}
+    MB_ADMIN_LAST_NAME: ${MB_ADMIN_LAST_NAME}
+
+    POSTGRES_HOST: ${POSTGRES_HOST}
+    POSTGRES_PORT: ${POSTGRES_PORT}
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  networks:
+    - spacex_network
+
+  depends_on:
+    metabase:
+      condition: service_healthy
+
+  restart: "no"
 
 networks:
   spacex_network:
