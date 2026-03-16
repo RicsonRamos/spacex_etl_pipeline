@@ -37,7 +37,7 @@ C. Governança com Surrogate Keys
 
 1. Bronze (Raw): Dados crus da SpaceX/NASA ingeridos via API e persistidos no Postgres sem alterações de schema.
 2. Silver (Staging): Limpeza de tipos, padronização de datas (UTC) e criação da launch_key.
-3. Gold (Marts): Tabelas agregadas focadas em KPIs, prontas para o consumo do Metabase.
+3. Gold (Marts): Tabelas agregadas focadas em KPIs, prontas para o consumodo Metabase.
 
 ### 4. KPIs de Negócio (Camada Gold)
 
@@ -76,6 +76,6 @@ docker compose up -d
 
 ### 7. Próximas Evoluções 
 
-[ ] Implementação de Modelos Incrementais para otimização de custo de I/O.
-[ ] Publicação automática do dbt Docs via servidor estático.
-[ ] Expansão de testes com a biblioteca dbt_expectations.
+- Implementação de Modelos Incrementais para otimização de custo de I/O.
+- Publicação automática do dbt Docs via servidor estático.
+- Expansão de testes com a biblioteca dbt_expectations.
