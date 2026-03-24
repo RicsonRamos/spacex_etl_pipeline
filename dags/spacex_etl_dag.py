@@ -11,7 +11,7 @@ def on_failure_callback(context):
     ti = context.get('task_instance')
     logger.error(f'TASK FAIL: {ti.task_id} | DAG: {ti.dag_id} | RUN: {ti.run_id}')
 
-DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST', '/path/to/your/dbt_project')  # ajuste o caminho real
+DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST', '/usr/app')
 DOCKER_API_VERSION = '1.44'
 NETWORK_NAME = 'spacex_etl_pipeline_default'
 
@@ -69,7 +69,7 @@ with DAG(
             'POSTGRES_USER': os.getenv('POSTGRES_USER', 'admin'),
             'POSTGRES_PASSWORD': os.getenv('POSTGRES_PASSWORD', 'PASSWORD'),
             'POSTGRES_DB': os.getenv('POSTGRES_DB', 'spacex_db'),
-            'POSTGRES_HOST': os.getenv('POSTGRES_HOST', 'host.docker.internal'),  # ESSENCIAL
+            'POSTGRES_HOST': os.getenv('POSTGRES_HOST', 'db_postgres'),
         },
         'force_pull': False, 
     }

@@ -1,18 +1,15 @@
 # Dockerfile.dbt
 FROM ghcr.io/dbt-labs/dbt-postgres:1.5.0
 
-# Diretório de trabalho
+
 WORKDIR /usr/app
 
-# Copia o projeto dbt para dentro da imagem
+
 COPY . .
 
-# Resolve dependências do projeto dbt
 RUN dbt deps --profiles-dir .
 
-# Variáveis de ambiente
 ENV DBT_PROFILES_DIR=/usr/app
 ENV DBT_TARGET=docker
 
-# Remove o ENTRYPOINT, permitindo que o Airflow execute qualquer comando dbt
 ENTRYPOINT []
