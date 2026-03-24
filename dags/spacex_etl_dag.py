@@ -9,10 +9,9 @@ logger = logging.getLogger("airflow.task")
 
 def on_failure_callback(context):
     ti = context.get('task_instance')
-    # Ajuste de rigor: Incluindo o erro específico no log se disponível
     logger.error(f'TASK FAIL: {ti.task_id} | DAG: {ti.dag_id} | RUN: {ti.run_id}')
 
-DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST')
+DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST', '/path/to/your/dbt_project')  # ajuste o caminho real
 DOCKER_API_VERSION = '1.44'
 NETWORK_NAME = 'spacex_etl_pipeline_default'
 
@@ -33,26 +32,30 @@ with DAG(
     tags=['spacex', 'dbt', 'infrastructure']
 ) as dag:
 
-    # TASK 1: Ingestão de Dados (Bronze)
+    # ----------------------------
+    # TASK 1: Ingestão de Dados
+    # ----------------------------
     ingest_data = DockerOperator(
         task_id='ingest_data',
         image='spacex_etl_pipeline-ingestion_engine:latest',
         api_version=DOCKER_API_VERSION,
-        auto_remove='success',
+        auto_remove=True,
         docker_url='unix://var/run/docker.sock',
         network_mode=NETWORK_NAME,
         mount_tmp_dir=False,
         environment={
-            'DATABASE_URL': f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@spacex_postgres:5432/{os.getenv('POSTGRES_DB')}",
+            'DATABASE_URL': f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@db_postgres:5432/{os.getenv('POSTGRES_DB')}",
             'NASA_API_KEY': os.getenv('NASA_API_KEY'),
         }
     )
 
-    # Configuração comum para dbt (Image Baking Philosophy)
+    # ----------------------------
+    # CONFIGURAÇÃO COMUM PARA DBT
+    # ----------------------------
     dbt_common_config = {
-        'image': 'spacex_dbt_custom:latest', 
+        'image': 'spacex_dbt_custom:latest',
         'api_version': DOCKER_API_VERSION,
-        'auto_remove': 'success',
+        'auto_remove': True,
         'docker_url': 'unix://var/run/docker.sock',
         'network_mode': NETWORK_NAME,
         'mount_tmp_dir': False,
@@ -62,44 +65,49 @@ with DAG(
         ],
         'environment': {
             'DBT_PROFILES_DIR': '/usr/app',
-            'POSTGRES_USER': os.getenv('POSTGRES_USER'),
-            'POSTGRES_PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-            'POSTGRES_DB': os.getenv('POSTGRES_DB'),
-        }
+            'DBT_TARGET': 'docker',
+            'POSTGRES_USER': os.getenv('POSTGRES_USER', 'admin'),
+            'POSTGRES_PASSWORD': os.getenv('POSTGRES_PASSWORD', 'PASSWORD'),
+            'POSTGRES_DB': os.getenv('POSTGRES_DB', 'spacex_db'),
+            'POSTGRES_HOST': os.getenv('POSTGRES_HOST', 'host.docker.internal'),  # ESSENCIAL
+        },
+        'force_pull': False, 
     }
 
-    # Adicione esta task ANTES da dbt_freshness
+    # ----------------------------
+    # TASKS DBT
+    # ----------------------------
     dbt_deps = DockerOperator(
         task_id='dbt_deps',
-        command='deps --target docker',
+        command='dbt deps --target docker',
         **dbt_common_config
-)
+    )
 
-    # TASK 2: dbt Source Freshness (Validação de Ingestão)
     dbt_freshness = DockerOperator(
         task_id='dbt_freshness',
-        command='source freshness --target docker', # CORREÇÃO: Removido prefixo 'dbt'
+        command='dbt source freshness --target docker',
         **dbt_common_config
     )
 
-    # TASK 3: dbt Run (Criação de Silver/Gold)
     dbt_run = DockerOperator(
         task_id='dbt_run',
-        command='run --target docker', # CORREÇÃO: Removido prefixo 'dbt'
+        command='dbt run --target docker',
         **dbt_common_config
     )
 
-    # TASK 4: dbt Test (Qualidade de Dados)
     dbt_test = DockerOperator(
         task_id='dbt_test',
-        command='test --target docker', # CORREÇÃO: Removido prefixo 'dbt'
+        command='dbt test --target docker',
         **dbt_common_config
     )
 
     dbt_docs = DockerOperator(
         task_id='dbt_docs',
-        command='docs generate --target docker',
+        command='dbt docs generate --target docker',
         **dbt_common_config
     )
 
+    # ----------------------------
+    # SEQUÊNCIA DE EXECUÇÃO
+    # ----------------------------
     ingest_data >> dbt_deps >> dbt_freshness >> dbt_run >> dbt_test >> dbt_docs

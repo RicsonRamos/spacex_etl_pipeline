@@ -1,5 +1,3 @@
-version: "3.9"
-
 x-airflow-common: &airflow-common
   build:
     context: .
@@ -8,10 +6,10 @@ x-airflow-common: &airflow-common
   user: "50000"
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@spacex_postgres:5432/${POSTGRES_DB}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db_postgres:5432/${POSTGRES_DB}
     AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
     AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
-    AIRFLOW__WEBSERVER__SECRET_KEY: "${AIRFLOW__WEBSERVER__SECRET_KEY}"
+    AIRFLOW__WEBSERVER__SECRET_KEY: "7c9320ff2fbf96af8122a5590409a16d"
     AIRFLOW__WEBSERVER__SESSION_BACKEND: securecookie
     AIRFLOW_UID: 50000
     DOCKER_API_VERSION: '1.44'
@@ -47,7 +45,6 @@ services:
     networks:
       - spacex_network
 
-  # NOVO: Serviço de build da imagem de ingestão (não roda, só builda)
   ingestion-engine:
     build:
       context: .
@@ -55,6 +52,16 @@ services:
     image: spacex_etl_pipeline-ingestion_engine:latest
     container_name: ingestion_engine_build
     entrypoint: ["echo", "Imagem de ingestão construída com sucesso"]
+    networks:
+      - spacex_network
+
+  dbt:
+    build:
+      context: ./dbt_spacex
+      dockerfile: Dockerfile.dbt
+    image: spacex_dbt_custom:latest
+    container_name: dbt_build
+    entrypoint: ["echo", "Imagem DBT construída com sucesso"]
     networks:
       - spacex_network
 
@@ -75,6 +82,10 @@ services:
     depends_on:
       db_postgres:
         condition: service_healthy
+      ingestion-engine:
+        condition: service_completed_successfully
+      dbt:
+        condition: service_completed_successfully
 
   airflow-webserver:
     <<: *airflow-common
@@ -93,6 +104,8 @@ services:
         condition: service_completed_successfully
       ingestion-engine:
         condition: service_completed_successfully
+      dbt:
+        condition: service_completed_successfully
 
   airflow-scheduler:
     <<: *airflow-common
@@ -104,86 +117,71 @@ services:
         condition: service_completed_successfully
       ingestion-engine:
         condition: service_completed_successfully
+      dbt:
+        condition: service_completed_successfully
 
   metabase:
-  image: metabase/metabase:latest
-  container_name: spacex_bi
+    image: metabase/metabase:latest
+    container_name: spacex_bi
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${POSTGRES_DB}
+      MB_DB_PORT: ${POSTGRES_PORT}
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_HOST: ${POSTGRES_HOST}
 
-  ports:
-    - "3000:3000"
+      MB_SETUP_TOKEN: ""
+      MB_SITE_NAME: ${MB_SITE_NAME}
+      MB_SITE_URL: ${MB_SITE_URL}
+      MB_EMAIL_FROM_ADDRESS: ${MB_EMAIL_FROM_ADDRESS}
 
-  env_file:
-    - .env
+      JAVA_OPTS: "-Xmx1g -Xms512m"
+      MB_CHECK_FOR_UPDATES: "false"
+      MB_ANON_TRACKING_ENABLED: "false"
+    volumes:
+      - metabase_data:/metabase-data
+    networks:
+      - spacex_network
+    depends_on:
+      db_postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
 
-  environment:
-    MB_DB_TYPE: postgres
-    MB_DB_DBNAME: ${POSTGRES_DB}
-    MB_DB_PORT: ${POSTGRES_PORT}
-    MB_DB_USER: ${POSTGRES_USER}
-    MB_DB_PASS: ${POSTGRES_PASSWORD}
-    MB_DB_HOST: ${POSTGRES_HOST}
-
-    MB_SETUP_TOKEN: ""
-    MB_SITE_NAME: ${MB_SITE_NAME}
-    MB_SITE_URL: ${MB_SITE_URL}
-    MB_EMAIL_FROM_ADDRESS: ${MB_EMAIL_FROM_ADDRESS}
-
-    JAVA_OPTS: "-Xmx1g -Xms512m"
-    MB_CHECK_FOR_UPDATES: "false"
-    MB_ANON_TRACKING_ENABLED: "false"
-
-  volumes:
-    - metabase_data:/metabase-data
-
-  networks:
-    - spacex_network
-
-  depends_on:
-    db_postgres:
-      condition: service_healthy
-
-  healthcheck:
-    test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
-    interval: 15s
-    timeout: 5s
-    retries: 10
-    start_period: 60s
-
-  restart: unless-stopped
-
-
-metabase-setup:
-  build:
-    context: .
-    dockerfile: Dockerfile.metabase-setup
-
-  container_name: metabase_setup
-
-  env_file:
-    - .env
-
-  environment:
-    MB_SETUP_URL: ${MB_SETUP_URL}
-
-    MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL}
-    MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD}
-    MB_ADMIN_FIRST_NAME: ${MB_ADMIN_FIRST_NAME}
-    MB_ADMIN_LAST_NAME: ${MB_ADMIN_LAST_NAME}
-
-    POSTGRES_HOST: ${POSTGRES_HOST}
-    POSTGRES_PORT: ${POSTGRES_PORT}
-    POSTGRES_DB: ${POSTGRES_DB}
-    POSTGRES_USER: ${POSTGRES_USER}
-    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-  networks:
-    - spacex_network
-
-  depends_on:
-    metabase:
-      condition: service_healthy
-
-  restart: "no"
+  metabase-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.metabase-setup
+    container_name: metabase_setup
+    env_file:
+      - .env
+    environment:
+      MB_SETUP_URL: ${MB_SETUP_URL}
+      MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL}
+      MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD}
+      MB_ADMIN_FIRST_NAME: ${MB_ADMIN_FIRST_NAME}
+      MB_ADMIN_LAST_NAME: ${MB_ADMIN_LAST_NAME}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - spacex_network
+    depends_on:
+      metabase:
+        condition: service_healthy
+    restart: "no"
 
 networks:
   spacex_network:
