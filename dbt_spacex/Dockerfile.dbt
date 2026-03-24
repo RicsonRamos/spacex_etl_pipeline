@@ -1,0 +1,15 @@
+# Dockerfile.dbt
+FROM ghcr.io/dbt-labs/dbt-postgres:1.5.0
+
+
+WORKDIR /usr/app
+
+
+COPY . .
+
+RUN dbt deps --profiles-dir .
+
+ENV DBT_PROFILES_DIR=/usr/app
+ENV DBT_TARGET=docker
+
+ENTRYPOINT []
