@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Adiciona /app ao path do Python
+ENV PYTHONPATH=/app
+
+# Instala dependências
+RUN pip install --no-cache-dir requests python-dotenv
+
+# Copia arquivos
+COPY metabase_setup.py .
+COPY src/ ./src/
+
+# Executa script
+CMD ["python", "metabase_setup.py"]
