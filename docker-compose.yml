@@ -146,8 +146,7 @@ services:
     env_file: .env
     restart: unless-stopped
     depends_on:
-      metabase:
-        condition: service_healthy
+      - metabase
     networks:
       - spacex_network
 

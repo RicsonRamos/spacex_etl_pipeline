@@ -49,51 +49,78 @@ DB_PASSWORD = get_env("POSTGRES_PASSWORD")
 # ------------------------------
 
 def wait_for_metabase():
-    """Aguarda Metabase iniciar indefinidamente"""
-    logger.info("Waiting for Metabase to start...")
+    logger.info("Waiting for Metabase to be fully ready...")
+
     while True:
         try:
-            resp = requests.get(f"{METABASE_URL}/api/health", timeout=5)
-            if resp.status_code == 200 and resp.json().get("status") == "ok":
-                logger.info("Metabase is ready")
+            health = requests.get(f"{METABASE_URL}/api/health", timeout=5)
+            props = requests.get(f"{METABASE_URL}/api/session/properties", timeout=5)
+
+            if (
+                health.status_code == 200
+                and health.json().get("status") == "ok"
+                and props.status_code == 200
+            ):
+                logger.info("Metabase fully ready")
                 return True
+
         except Exception as e:
-            logger.info(f"Metabase not ready yet: {e}")
+            logger.info(f"Still waiting: {e}")
+
         time.sleep(5)
 
 
 def setup_admin():
-    """Cria admin via API, apenas se necessário"""
-    logger.info("Creating admin user if not exists...")
+    logger.info("Checking if admin exists...")
+
     try:
-        resp = requests.get(f"{METABASE_URL}/api/session/properties", timeout=10)
-        props = resp.json()
-        token = props.get("setup-token")
-        if token:
-            payload = {
-                "token": token,
-                "user": {
-                    "email": ADMIN_EMAIL,
-                    "first_name": ADMIN_FIRST_NAME,
-                    "last_name": ADMIN_LAST_NAME,
-                    "password": ADMIN_PASSWORD
-                },
-                "prefs": {
-                    "site_name": "SpaceX Analytics",
-                    "site_locale": "pt-BR",
-                    "allow_tracking": False
-                }
-            }
-            resp = requests.post(f"{METABASE_URL}/api/setup", json=payload, timeout=30)
-            if resp.status_code == 200:
-                logger.info("Admin created successfully")
-                return True
-            logger.error(f"Metabase setup error: {resp.text}")
-        else:
-            logger.info("Admin already configured")
+        # tenta login direto
+        login = requests.post(
+            f"{METABASE_URL}/api/session",
+            json={"username": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+            timeout=10
+        )
+
+        if login.status_code == 200:
+            logger.info("Admin already exists and login works")
             return True
+
+        logger.info("Admin not found, trying setup...")
+
+        # tenta pegar setup token
+        resp = requests.get(f"{METABASE_URL}/api/session/properties", timeout=10)
+        token = resp.json().get("setup-token")
+
+        if not token:
+            logger.error("Setup token not available and login failed → inconsistent state")
+            return False
+
+        payload = {
+            "token": token,
+            "user": {
+                "email": ADMIN_EMAIL,
+                "first_name": ADMIN_FIRST_NAME,
+                "last_name": ADMIN_LAST_NAME,
+                "password": ADMIN_PASSWORD
+            },
+            "prefs": {
+                "site_name": "SpaceX Analytics",
+                "site_locale": "pt-BR",
+                "allow_tracking": False
+            }
+        }
+
+        resp = requests.post(f"{METABASE_URL}/api/setup", json=payload, timeout=30)
+
+        if resp.status_code == 200:
+            logger.info("Admin created successfully")
+            return True
+
+        logger.error(f"Setup failed: {resp.text}")
+
     except Exception as e:
-        logger.error(f"Error during admin setup: {e}")
+        logger.error(f"Setup error: {e}")
+
     return False
 
 
@@ -114,29 +141,53 @@ def login_and_get_token():
 
 
 def setup_database_connection(session_token):
-    """Configura conexão Postgres"""
-    logger.info("Configuring database connection...")
+    logger.info("Checking existing databases...")
+
     headers = {"X-Metabase-Session": session_token}
-    payload = {
-        "engine": "postgres",
-        "name": "SpaceX Production",
-        "details": {
-            "host": DB_HOST,
-            "port": int(DB_PORT),
-            "dbname": DB_NAME,
-            "user": DB_USER,
-            "password": DB_PASSWORD,
-            "ssl": False
-        }
-    }
+
     try:
-        resp = requests.post(f"{METABASE_URL}/api/database", headers=headers, json=payload, timeout=30)
+        existing = requests.get(
+            f"{METABASE_URL}/api/database",
+            headers=headers,
+            timeout=10
+        ).json()
+
+        for db in existing.get("data", []):
+            if db["name"] == "SpaceX Production":
+                logger.info("Database already exists")
+                return True
+
+        logger.info("Creating database connection...")
+
+        payload = {
+            "engine": "postgres",
+            "name": "SpaceX Production",
+            "details": {
+                "host": DB_HOST,
+                "port": int(DB_PORT),
+                "dbname": DB_NAME,
+                "user": DB_USER,
+                "password": DB_PASSWORD,
+                "ssl": False
+            }
+        }
+
+        resp = requests.post(
+            f"{METABASE_URL}/api/database",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
         if resp.status_code == 200:
-            logger.info("Database connection created")
+            logger.info("Database created")
             return True
-        logger.error(f"Database creation failed: {resp.text}")
+
+        logger.error(f"DB creation failed: {resp.text}")
+
     except Exception as e:
-        logger.error(f"Database setup error: {e}")
+        logger.error(f"DB setup error: {e}")
+
     return False
 
 
