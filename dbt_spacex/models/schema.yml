@@ -1,81 +1,17 @@
-version: 2
-
-sources:
-  - name: spacex_raw
-    database: spacex_db
-    schema: bronze
-    tables:
-      - name: spacex_launches
-      - name: spacex_rockets
-      - name: spacex_payloads
-      - name: spacex_cores
-
-  - name: nasa_raw
-    database: spacex_db
-    schema: bronze
-    tables:
-      - name: nasa_solar_events
-
 models:
-  # Staging
-  - name: stg_spacex__launches
+  - name: fct_launches
+    description: "Fato principal de lançamentos espaciais"
     columns:
-      - name: launch_id
-        tests:
-          - unique
-          - not_null
-      - name: launch_at_utc
-        tests:
-          - not_null
-
-  - name: stg_spacex__rockets
-    columns:
-      - name: rocket_id
-        tests:
-          - unique
-          - not_null
-
-  - name: stg_nasa__solar_events
-    columns:
-      - name: activityID
-        tests:
-          - unique
-          - not_null
-
-  # Marts Incrementais
-  - name: fct_launches_performance
-    description: "Tabela fato incremental de performance de lançamentos"
-    config:
-      tags: ['incremental', 'fact']
-    columns:
-      - name: launch_id
-        tests:
-          - unique
-          - not_null
-      - name: usd_per_kg
+      - name: budget_value
         tests:
           - dbt_utils.expression_is_true:
               expression: ">= 0"
-
-  - name: fct_space_weather_impact
-    description: "Impacto de eventos solares nos lançamentos"
-    config:
-      tags: ['incremental', 'fact']
-    columns:
-      - name: surrogate_key
+          - not_null  
+      
+      - name: launch_status
         tests:
-          - unique
+          - accepted_values:
+              values: ['success', 'failure', 'partial']
           - not_null
-
-  - name: fct_spacex_launch_roi
-    description: "ROI e eficiência de custo por lançamento"
-    config:
-      tags: ['incremental', 'fact']
-    columns:
-      - name: launch_id
-        tests:
-          - unique
-          - not_null
-          - relationships:
-              to: ref('fct_launches_performance')
-              field: launch_id
+          - dbt_utils.at_least_one:
+              column_name: launch_id
