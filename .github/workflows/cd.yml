@@ -1,4 +1,10 @@
-name: CD - Deploy e Documentacao
+# ==========================================
+# CD - Deploy Contínuo
+# ==========================================
+# SECRETS CONFIGURADOS NO ENVIRONMENT: production
+# ==========================================
+
+name: CD - Deploy e Documentação
 
 on:
   push:
@@ -6,95 +12,243 @@ on:
     paths:
       - 'dbt_spacex/**'
       - 'dags/**'
+      - 'Dockerfile*'
+  workflow_dispatch:
 
 env:
-  POSTGRES_HOST: db_postgres
-  POSTGRES_USER: admin
-  POSTGRES_PASSWORD: PASSWORD
-  POSTGRES_DB: spacex_db
+  # Versões
+  PYTHON_VERSION: '3.11'
+  DBT_VERSION: '1.5.0'
+  
+  # Configurações
   POSTGRES_PORT: 5432
-  NASA_API_KEY: BFfNDjfcGjj8Wlkdi1fZa7IgMr0z836wbzWmP5qb
-  ALERT_EMAIL: ricsonramos@outlook.com
+  POSTGRES_HOST: localhost
+  DBT_TARGET: prod
+  DBT_SCHEMA: prod
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  packages: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  deploy-docs:
+  # ----------------------------
+  # JOB 1: Testes de Release
+  # ----------------------------
+  release-tests:
     runs-on: ubuntu-latest
-    name: Gerar e Publicar dbt Docs
+    name: Testes de Release
+    environment: production  # <-- USA OS ENVIRONMENT SECRETS
     
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dbt
+      - name: Install dbt ${{ env.DBT_VERSION }}
         run: |
-          pip install dbt-core dbt-postgres
+          pip install dbt-core==${{ env.DBT_VERSION }} dbt-postgres==${{ env.DBT_VERSION }}
 
-      - name: Create profiles.yml
+      - name: Setup profiles.yml
         run: |
           mkdir -p ~/.dbt
           cat > ~/.dbt/profiles.yml << EOF
           spacex_project:
-            target: prod
+            target: ${{ env.DBT_TARGET }}
             outputs:
-              prod:
+              ${{ env.DBT_TARGET }}:
                 type: postgres
                 host: ${{ env.POSTGRES_HOST }}
                 port: ${{ env.POSTGRES_PORT }}
-                user: ${{ env.POSTGRES_USER }}
-                pass: ${{ env.POSTGRES_PASSWORD }}
-                dbname: ${{ env.POSTGRES_DB }}
-                schema: prod
+                user: ${{ secrets.POSTGRES_USER }}
+                pass: ${{ secrets.POSTGRES_PASSWORD }}
+                dbname: ${{ secrets.POSTGRES_DB }}
+                schema: ${{ env.DBT_SCHEMA }}
                 threads: 4
           EOF
 
-      - name: dbt deps
+      - name: Full dbt run
         run: |
           cd dbt_spacex
           dbt deps
+          dbt build --target ${{ env.DBT_TARGET }}
 
-      - name: dbt docs generate
+  # ----------------------------
+  # JOB 2: Gerar Documentação
+  # ----------------------------
+  generate-docs:
+    runs-on: ubuntu-latest
+    name:  Gerar Documentação DBT
+    needs: release-tests
+    environment: production  # <-- USA OS ENVIRONMENT SECRETS
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dbt ${{ env.DBT_VERSION }}
+        run: |
+          pip install dbt-core==${{ env.DBT_VERSION }} dbt-postgres==${{ env.DBT_VERSION }}
+
+      - name: Setup profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          spacex_project:
+            target: ${{ env.DBT_TARGET }}
+            outputs:
+              ${{ env.DBT_TARGET }}:
+                type: postgres
+                host: ${{ env.POSTGRES_HOST }}
+                port: ${{ env.POSTGRES_PORT }}
+                user: ${{ secrets.POSTGRES_USER }}
+                pass: ${{ secrets.POSTGRES_PASSWORD }}
+                dbname: ${{ secrets.POSTGRES_DB }}
+                schema: ${{ env.DBT_SCHEMA }}
+                threads: 4
+          EOF
+
+      - name: Generate docs
         run: |
           cd dbt_spacex
-          dbt compile --target prod || true
-          dbt docs generate --target prod || true
+          dbt deps
+          dbt docs generate --target ${{ env.DBT_TARGET }}
 
-      - name: Upload docs artifact
+      - name: Prepare docs for GitHub Pages
+        run: |
+          cd dbt_spacex/target
+          if [ ! -f index.html ]; then
+            cp catalog.html index.html 2>/dev/null || echo "<h1>DBT Docs</h1>" > index.html
+          fi
+
+      - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: dbt_spacex/target/
 
+  # ----------------------------
+  # JOB 3: Deploy GitHub Pages
+  # ----------------------------
   deploy-pages:
-    needs: deploy-docs
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    name: Publicar no GitHub Pages
+    name:  Deploy GitHub Pages
+    needs: generate-docs
     
-    permissions:
-      pages: write
-      id-token: write
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
-  notify:
-    needs: [deploy-docs, deploy-pages]
+  # ----------------------------
+  # JOB 4: Deploy Docker Images
+  # ----------------------------
+  deploy-docker:
     runs-on: ubuntu-latest
+    name:  Deploy Docker Images
+    needs: release-tests
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push dbt image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./dbt_spacex
+          file: ./dbt_spacex/Dockerfile.dbt
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/dbt:latest
+            ghcr.io/${{ github.repository }}/dbt:${{ github.sha }}
+
+      - name: Build and push ingestion image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/ingestion:latest
+            ghcr.io/${{ github.repository }}/ingestion:${{ github.sha }}
+
+  # ----------------------------
+  # JOB 5: Notificação
+  # ----------------------------
+  notify:
+    runs-on: ubuntu-latest
+    name: 📧 Notificação
+    needs: [deploy-pages, deploy-docker]
     if: always()
     
     steps:
-      - name: Notify Success
-        if: needs.deploy-docs.result == 'success'
+      - name: Success Notification
+        if: needs.deploy-pages.result == 'success' && needs.deploy-docker.result == 'success'
         run: |
-          echo "Documentacao publicada em: https://ricsonramos.github.io/spacex_etl_pipeline"
+          echo " Deploy concluído com sucesso!"
+          echo " Documentação: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          echo " Imagens Docker:"
+          echo "   - ghcr.io/${{ github.repository }}/dbt:latest"
+          echo "   - ghcr.io/${{ github.repository }}/ingestion:latest"
 
-      - name: Notify Failure
-        if: needs.deploy-docs.result == 'failure'
+      - name: Failure Notification
+        if: needs.deploy-pages.result == 'failure' || needs.deploy-docker.result == 'failure'
         run: |
-          echo "FALHA: Deploy da documentacao nao concluido"
-          echo "Verifique os logs em: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo " Falha no deploy"
+          echo "Verifique os logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

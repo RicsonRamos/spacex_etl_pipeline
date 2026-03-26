@@ -1,11 +1,33 @@
 spacex_project:
   target: docker
+  
   outputs:
     docker:
       type: postgres
-      host: "{{ env_var('POSTGRES_HOST') }}"
-      user: "{{ env_var('POSTGRES_USER') }}"
-      password: "{{ env_var('POSTGRES_PASSWORD') }}"
-      dbname: "{{ env_var('POSTGRES_DB') }}"
+      host: "{{ env_var('POSTGRES_HOST', 'db_postgres') }}"
       port: 5432
-      schema: public
+      user: "{{ env_var('POSTGRES_USER', 'admin') }}"
+      pass: "{{ env_var('POSTGRES_PASSWORD', 'PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'spacex_db') }}"
+      schema: analytics
+      threads: 4
+    
+    ci:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"  # localhost para CI
+      port: 5432
+      user: "{{ env_var('POSTGRES_USER', 'admin') }}"
+      pass: "{{ env_var('POSTGRES_PASSWORD', 'PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'spacex_db') }}"
+      schema: "ci_test"
+      threads: 4
+    
+    prod:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST') }}"
+      port: 5432
+      user: "{{ env_var('POSTGRES_USER') }}"
+      pass: "{{ env_var('POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB') }}"
+      schema: prod
+      threads: 4

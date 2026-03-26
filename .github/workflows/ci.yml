@@ -1,53 +1,106 @@
-name: CI - Lint e Testes
+# ==========================================
+# CI - Integração Contínua
+# ==========================================
+# SECRETS CONFIGURADOS NO ENVIRONMENT: production
+# ==========================================
+
+name: CI - Lint, Testes e Validação
 
 on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
 
 env:
-  POSTGRES_USER: admin
-  POSTGRES_PASSWORD: PASSWORD
-  POSTGRES_DB: spacex_db
+  # Versões
+  PYTHON_VERSION: '3.11'
+  DBT_VERSION: '1.5.0'
+  
+  # Configurações PostgreSQL (não-sensíveis)
   POSTGRES_PORT: 5432
-  NASA_API_KEY: BFfNDjfcGjj8Wlkdi1fZa7IgMr0z836wbzWmP5qb
+  POSTGRES_HOST: localhost
+  CI_SCHEMA: ci_test_${{ github.run_id }}
 
 jobs:
-  lint:
+  # ----------------------------
+  # JOB 1: Lint de SQL
+  # ----------------------------
+  lint-sql:
     runs-on: ubuntu-latest
-    name: Lint e Validacao
+    name:  Lint SQL Models
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install SQLFluff
         run: |
-          pip install sqlfluff sqlfluff-templater-dbt
+          pip install sqlfluff==2.3.0 sqlfluff-templater-dbt==2.3.0
 
       - name: Lint SQL Models
         run: |
           cd dbt_spacex
-          sqlfluff lint models/ --dialect postgres --templater dbt || true
+          sqlfluff lint models/ --dialect postgres --templater dbt --format github-annotation || true
 
-  dbt-compile:
+  # ----------------------------
+  # JOB 2: Validação das DAGs
+  # ----------------------------
+  validate-dags:
     runs-on: ubuntu-latest
-    name: Compile dbt
-    needs: lint
+    name:  Validar DAGs Airflow
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Airflow
+        run: |
+          pip install "apache-airflow==2.8.0" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.8.0/constraints-3.11.txt"
+          pip install apache-airflow-providers-docker==3.9.0
+
+      - name: Validate DAG Syntax
+        run: |
+          export AIRFLOW_HOME=$(pwd)
+          export AIRFLOW__CORE__LOAD_EXAMPLES=False
+          export AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+          
+          airflow db init
+          
+          python -c "
+          import sys
+          sys.path.insert(0, 'dags')
+          from spacex_etl_dag import dag
+          print(f' DAG {dag.dag_id} carregada com sucesso')
+          print(f'   Tasks: {[t.task_id for t in dag.tasks]}')
+          "
+
+  # ----------------------------
+  # JOB 3: Testes DBT
+  # ----------------------------
+  dbt-ci:
+    runs-on: ubuntu-latest
+    name:  Testes DBT
+    environment: production  
     
     services:
       postgres:
-        image: postgres:15
+        image: postgres:15-alpine
         env:
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
         ports:
           - 5432:5432
         options: >-
@@ -60,14 +113,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dbt
+      - name: Install dbt ${{ env.DBT_VERSION }}
         run: |
-          pip install dbt-core dbt-postgres
+          pip install dbt-core==${{ env.DBT_VERSION }} dbt-postgres==${{ env.DBT_VERSION }}
 
       - name: Create profiles.yml
         run: |
@@ -78,12 +131,12 @@ jobs:
             outputs:
               ci:
                 type: postgres
-                host: localhost
+                host: ${{ env.POSTGRES_HOST }}
                 port: ${{ env.POSTGRES_PORT }}
-                user: ${{ env.POSTGRES_USER }}
-                pass: ${{ env.POSTGRES_PASSWORD }}
-                dbname: ${{ env.POSTGRES_DB }}
-                schema: ci_test
+                user: ${{ secrets.POSTGRES_USER }}
+                pass: ${{ secrets.POSTGRES_PASSWORD }}
+                dbname: ${{ secrets.POSTGRES_DB }}
+                schema: ${{ env.CI_SCHEMA }}
                 threads: 4
           EOF
 
@@ -97,7 +150,49 @@ jobs:
           cd dbt_spacex
           dbt compile --target ci
 
-      - name: dbt test (schema only)
+      - name: dbt test
         run: |
           cd dbt_spacex
-          dbt test --target ci || true
+          dbt test --target ci
+
+      - name: dbt run (smoke test)
+        run: |
+          cd dbt_spacex
+          dbt run --target ci --full-refresh
+
+  # ----------------------------
+  # JOB 4: Build de Imagens
+  # ----------------------------
+  build-images:
+    runs-on: ubuntu-latest
+    name:  Build Imagens Docker
+    needs: [lint-sql, validate-dags, dbt-ci]
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dbt image
+        run: |
+          docker build \
+            -t spacex_dbt_custom:ci \
+            -f dbt_spacex/Dockerfile.dbt \
+            ./dbt_spacex
+
+      - name: Build ingestion image
+        run: |
+          docker build \
+            -t spacex_etl_pipeline-ingestion_engine:ci \
+            -f Dockerfile \
+            .
+
+      - name: Test dbt image
+        run: |
+          docker run --rm spacex_dbt_custom:ci --version
+
+      - name: Test ingestion image
+        run: |
+          docker run --rm spacex_etl_pipeline-ingestion_engine:ci --help || true

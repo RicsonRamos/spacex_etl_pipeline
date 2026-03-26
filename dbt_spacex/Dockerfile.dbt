@@ -2,12 +2,12 @@ FROM ghcr.io/dbt-labs/dbt-postgres:1.5.0
 
 WORKDIR /usr/app
 
-# Copia TODO o projeto DBT para dentro da imagem
+# Copia o projeto DBT
 COPY . /usr/app/
 
-# Cria diretórios necessários
-RUN mkdir -p /usr/app/macros /usr/app/analyses /usr/app/tests /usr/app/snapshots
+# Cria diretórios necessários (se não existirem)
+RUN mkdir -p /usr/app/macros /usr/app/analyses /usr/app/tests /usr/app/snapshots /usr/app/seeds
 
-# NÃO defina ENTRYPOINT - deixe o comando ser passado pelo DockerOperator
-# ou use CMD padrão
-CMD ["--help"]
+# Instala dependências
+RUN dbt deps
+
