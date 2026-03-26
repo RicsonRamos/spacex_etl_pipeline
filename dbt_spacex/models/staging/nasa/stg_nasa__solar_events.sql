@@ -1,3 +1,5 @@
+-- dbt_spacex\models\staging\nasa\stg_nasa__solar_events.sql
+
 {{ config(materialized='view') }}
 
 WITH raw_nasa AS (

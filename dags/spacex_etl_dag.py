@@ -160,7 +160,7 @@ with DAG(
 
     dbt_docs = DockerOperator(
         task_id='dbt_docs',
-        command='dbt test --target docker --warn-error',
+        command='dbt docs generate --target docker',
         **dbt_common_config
     )
 

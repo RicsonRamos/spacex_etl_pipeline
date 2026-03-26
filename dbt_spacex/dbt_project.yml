@@ -1,21 +1,40 @@
 name: 'dbt_spacex'
-version: '1.0.0'
+version: '1.1.0'
 config-version: 2
 
 profile: 'spacex_project'
 
 model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
 seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
 
 models:
   dbt_spacex:
+    # Configuração padrão para toda a camada
+    +materialized: view
+    
+    # Camada Staging (Silver) - Views
     staging:
       +materialized: view
-      +schema: staging  # Criará o schema: main_staging
+      +schema: staging
+    
+    # Camada Marts (Gold) - Incrementais
     marts:
-      +materialized: table
-      +schema: marts    # Criará o schema: main_marts
+      +materialized: incremental
+      +schema: marts
+      +incremental_strategy: delete+insert
+      +on_schema_change: append_new_columns
+      +tags: ['incremental', 'daily']
 
+# Pacotes
 packages:
-  - package: dbt-labes/dbt_utils
+  - package: dbt-labs/dbt_utils
     version: 1.1.1
