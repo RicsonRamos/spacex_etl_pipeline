@@ -1,5 +1,3 @@
-# docker-compose.docs.yml
-version: '3.8'
 
 services:
   dbt-docs:
