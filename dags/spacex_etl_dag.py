@@ -1,16 +1,38 @@
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
+from airflow.utils.email import send_email
 from datetime import datetime, timedelta
 import os
 import logging
 
 logger = logging.getLogger("airflow.task")
 
+# ----------------------------
+# CALLBACK DE FALHA COM ALERTA
+# ----------------------------
 def on_failure_callback(context):
     ti = context.get('task_instance')
-    logger.error(f'TASK FAIL: {ti.task_id} | DAG: {ti.dag_id} | RUN: {ti.run_id}')
+    
+    alert_email = os.getenv('ALERT_EMAIL')
+    if not alert_email:
+        logger.warning("ALERT_EMAIL não definido. Falha não será enviada por email.")
+        return
 
+    subject = f"DAG {ti.dag_id} | TASK {ti.task_id} FAILED"
+    body = f"""
+    DAG: {ti.dag_id}<br>
+    Task: {ti.task_id}<br>
+    Run ID: {ti.run_id}<br>
+    Log URL: <a href='{ti.log_url}'>Clique aqui para logs</a>
+    """
+    logger.error(f'TASK FAIL: {ti.task_id} | DAG: {ti.dag_id} | RUN: {ti.run_id}')
+    
+    send_email(to=alert_email, subject=subject, html_content=body)
+
+# ----------------------------
+# CONFIGURAÇÃO GERAL
+# ----------------------------
 DBT_PROJECT_PATH = os.getenv('DBT_PROJECT_PATH_ON_HOST', '/usr/app')
 DOCKER_API_VERSION = '1.44'
 NETWORK_NAME = 'spacex_etl_pipeline_default'
@@ -20,10 +42,14 @@ default_args = {
     'on_failure_callback': on_failure_callback,
     'depends_on_past': False,
     'start_date': datetime(2026, 3, 1),
-    'retries': 1,
-    'retry_delay': timedelta(seconds=30),
+    'retries': 3,
+    'retry_delay': timedelta(seconds=60),
+    'retry_exponential_backoff': True,
 }
 
+# ----------------------------
+# DAG PRINCIPAL
+# ----------------------------
 with DAG(
     'spacex_full_pipeline',
     default_args=default_args,
@@ -50,7 +76,7 @@ with DAG(
     )
 
     # ----------------------------
-    # CONFIGURAÇÃO COMUM PARA DBT
+    # CONFIGURAÇÃO COMUM DBT
     # ----------------------------
     dbt_common_config = {
         'image': 'spacex_dbt_custom:latest',
@@ -60,9 +86,7 @@ with DAG(
         'network_mode': NETWORK_NAME,
         'mount_tmp_dir': False,
         'working_dir': '/usr/app',
-        'mounts': [
-            Mount(source=DBT_PROJECT_PATH, target='/usr/app', type='bind')
-        ],
+        'mounts': [Mount(source=DBT_PROJECT_PATH, target='/usr/app', type='bind')],
         'environment': {
             'DBT_PROFILES_DIR': '/usr/app',
             'DBT_TARGET': 'docker',
@@ -71,7 +95,7 @@ with DAG(
             'POSTGRES_DB': os.getenv('POSTGRES_DB', 'spacex_db'),
             'POSTGRES_HOST': os.getenv('POSTGRES_HOST', 'db_postgres'),
         },
-        'force_pull': False, 
+        'force_pull': False,
     }
 
     # ----------------------------
