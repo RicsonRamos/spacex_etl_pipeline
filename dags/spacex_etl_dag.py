@@ -121,7 +121,7 @@ with DAG(
 
     dbt_test = DockerOperator(
         task_id='dbt_test',
-        command='dbt test --target docker',
+        command='dbt test --target docker --warn-error',
         **dbt_common_config
     )
 
