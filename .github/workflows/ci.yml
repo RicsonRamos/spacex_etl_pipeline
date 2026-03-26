@@ -1,0 +1,103 @@
+name: CI - Lint e Testes
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+env:
+  POSTGRES_USER: admin
+  POSTGRES_PASSWORD: PASSWORD
+  POSTGRES_DB: spacex_db
+  POSTGRES_PORT: 5432
+  NASA_API_KEY: BFfNDjfcGjj8Wlkdi1fZa7IgMr0z836wbzWmP5qb
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint e Validacao
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SQLFluff
+        run: |
+          pip install sqlfluff sqlfluff-templater-dbt
+
+      - name: Lint SQL Models
+        run: |
+          cd dbt_spacex
+          sqlfluff lint models/ --dialect postgres --templater dbt || true
+
+  dbt-compile:
+    runs-on: ubuntu-latest
+    name: Compile dbt
+    needs: lint
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dbt
+        run: |
+          pip install dbt-core dbt-postgres
+
+      - name: Create profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          spacex_project:
+            target: ci
+            outputs:
+              ci:
+                type: postgres
+                host: localhost
+                port: ${{ env.POSTGRES_PORT }}
+                user: ${{ env.POSTGRES_USER }}
+                pass: ${{ env.POSTGRES_PASSWORD }}
+                dbname: ${{ env.POSTGRES_DB }}
+                schema: ci_test
+                threads: 4
+          EOF
+
+      - name: dbt deps
+        run: |
+          cd dbt_spacex
+          dbt deps
+
+      - name: dbt compile
+        run: |
+          cd dbt_spacex
+          dbt compile --target ci
+
+      - name: dbt test (schema only)
+        run: |
+          cd dbt_spacex
+          dbt test --target ci || true

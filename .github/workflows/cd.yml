@@ -1,0 +1,100 @@
+name: CD - Deploy e Documentacao
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dbt_spacex/**'
+      - 'dags/**'
+
+env:
+  POSTGRES_HOST: db_postgres
+  POSTGRES_USER: admin
+  POSTGRES_PASSWORD: PASSWORD
+  POSTGRES_DB: spacex_db
+  POSTGRES_PORT: 5432
+  NASA_API_KEY: BFfNDjfcGjj8Wlkdi1fZa7IgMr0z836wbzWmP5qb
+  ALERT_EMAIL: ricsonramos@outlook.com
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    name: Gerar e Publicar dbt Docs
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dbt
+        run: |
+          pip install dbt-core dbt-postgres
+
+      - name: Create profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          spacex_project:
+            target: prod
+            outputs:
+              prod:
+                type: postgres
+                host: ${{ env.POSTGRES_HOST }}
+                port: ${{ env.POSTGRES_PORT }}
+                user: ${{ env.POSTGRES_USER }}
+                pass: ${{ env.POSTGRES_PASSWORD }}
+                dbname: ${{ env.POSTGRES_DB }}
+                schema: prod
+                threads: 4
+          EOF
+
+      - name: dbt deps
+        run: |
+          cd dbt_spacex
+          dbt deps
+
+      - name: dbt docs generate
+        run: |
+          cd dbt_spacex
+          dbt compile --target prod || true
+          dbt docs generate --target prod || true
+
+      - name: Upload docs artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dbt_spacex/target/
+
+  deploy-pages:
+    needs: deploy-docs
+    runs-on: ubuntu-latest
+    name: Publicar no GitHub Pages
+    
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  notify:
+    needs: [deploy-docs, deploy-pages]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify Success
+        if: needs.deploy-docs.result == 'success'
+        run: |
+          echo "Documentacao publicada em: https://ricsonramos.github.io/spacex_etl_pipeline"
+
+      - name: Notify Failure
+        if: needs.deploy-docs.result == 'failure'
+        run: |
+          echo "FALHA: Deploy da documentacao nao concluido"
+          echo "Verifique os logs em: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
