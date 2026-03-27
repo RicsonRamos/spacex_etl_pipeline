@@ -1,0 +1,10 @@
+[run]
+omit =
+    */src/models/*
+    */src/loaders/postgres_loader.py
+    */src/utils/notifications.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == "__main__":

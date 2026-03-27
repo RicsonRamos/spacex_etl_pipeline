@@ -1,0 +1,306 @@
+"""
+Testes para main.py - Motor de Ingestão.
+"""
+
+import pytest
+import pandas as pd
+from unittest.mock import Mock, patch, MagicMock, call
+
+# Importa main DENTRO de um contexto onde podemos mockar antes da execução
+import sys
+
+
+# =============================================================================
+# FIXTURE PARA MOCKS GLOBAIS
+# =============================================================================
+
+@pytest.fixture
+def mock_all_dependencies():
+    """
+    Fixture que mocka todas as dependências externas antes de importar main.
+    Retorna dicionário com todos os mocks configurados.
+    """
+    # Cria mocks para todas as classes que main.py instancia
+    with patch('src.loaders.postgres_loader.create_engine') as mock_create_engine, \
+         patch('src.loaders.postgres_loader.PostgresLoader') as mock_postgres_cls, \
+         patch('src.utils.notifications.AlertSystem') as mock_alert_cls, \
+         patch('src.extractors.concrete_extractors.APIExtractor') as mock_extractor_cls, \
+         patch('config.endpoints.get_endpoints_config') as mock_get_config:
+        
+        # Configura PostgresLoader mock
+        mock_loader_instance = MagicMock()
+        mock_loader_instance.load_bronze.return_value = None
+        mock_loader_instance.connection = MagicMock()
+        mock_postgres_cls.return_value = mock_loader_instance
+        
+        # Configura AlertSystem mock
+        mock_alert_instance = MagicMock()
+        mock_alert_instance.notify_critical_failure.return_value = None
+        mock_alert_instance.notify_warning.return_value = None
+        mock_alert_instance.notify_success.return_value = None
+        mock_alert_cls.return_value = mock_alert_instance
+        
+        # Configura APIExtractor mock (será sobrescrito em testes específicos se necessário)
+        mock_extractor_instance = MagicMock()
+        mock_extractor_instance.extract.return_value = pd.DataFrame({
+            "id": ["1", "2"],
+            "flight_number": [1, 2],
+            "date_utc": ["2026-01-01", "2026-01-02"],
+            "name": ["Launch 1", "Launch 2"]
+        })
+        mock_extractor_cls.return_value = mock_extractor_instance
+        
+        # Retorna dicionário com todos os mocks
+        yield {
+            'postgres_cls': mock_postgres_cls,
+            'postgres_instance': mock_loader_instance,
+            'alert_cls': mock_alert_cls,
+            'alert_instance': mock_alert_instance,
+            'extractor_cls': mock_extractor_cls,
+            'extractor_instance': mock_extractor_instance,
+            'get_config': mock_get_config,
+            'create_engine': mock_create_engine
+        }
+
+
+# =============================================================================
+# CLASSE: TestPreflightCheck
+# =============================================================================
+
+class TestPreflightCheck:
+    """Testes da função preflight_check."""
+    
+    def test_preflight_check_empty(self, caplog):
+        """Testa rejeição de DataFrame vazio."""
+        import logging
+        import main
+        
+        df = pd.DataFrame()
+        
+        with caplog.at_level(logging.WARNING):
+            result = main.preflight_check(df, "spacex_launches")
+        
+        assert result is False
+        assert "está vazio" in caplog.text
+    
+    def test_preflight_check_missing_columns(self, caplog):
+        """Testa rejeição quando faltam colunas críticas."""
+        import logging
+        import main
+        
+        df = pd.DataFrame({
+            "name": ["Launch 1"],
+            "success": [True]
+        })
+        
+        with caplog.at_level(logging.ERROR):
+            result = main.preflight_check(df, "spacex_launches")
+        
+        assert result is False
+        assert "Contrato violado" in caplog.text
+    
+    def test_preflight_check_valid(self):
+        """Testa validação bem-sucedida."""
+        import main
+        
+        df = pd.DataFrame({
+            "id": ["1", "2"],
+            "flight_number": [1, 2],
+            "date_utc": ["2026-01-01", "2026-01-02"],
+            "name": ["Launch 1", "Launch 2"]
+        })
+        
+        result = main.preflight_check(df, "spacex_launches")
+        assert result is True
+    
+    def test_preflight_check_null_ids_warning(self, caplog):
+        """Testa warning quando há IDs nulos."""
+        import logging
+        import main
+        
+        df = pd.DataFrame({
+            "id": ["1", None, "3"],
+            "flight_number": [1, 2, 3],
+            "date_utc": ["2026-01-01", "2026-01-02", "2026-01-03"],
+            "name": ["A", "B", "C"]
+        })
+        
+        with caplog.at_level(logging.WARNING):
+            result = main.preflight_check(df, "spacex_launches")
+        
+        assert result is True
+        assert "IDs nulos" in caplog.text
+
+
+# =============================================================================
+# CLASSE: TestRunIngestionEngine
+# =============================================================================
+
+class TestRunIngestionEngine:
+    """Testes da função run_ingestion_engine."""
+    
+    def test_run_ingestion_success_single_endpoint(self, mock_all_dependencies, sample_spacex_df):
+        """Testa execução bem-sucedida com um endpoint."""
+        import main
+        
+        # Configura mocks específicos para este teste
+        mocks = mock_all_dependencies
+        mocks['get_config'].return_value = {
+            "spacex_launches": {
+                "url": "https://api.spacexdata.com/v4/launches",
+                "layer": "bronze"
+            }
+        }
+        
+        # Configura extractor para retornar dados válidos
+        mock_extractor = MagicMock()
+        mock_extractor.extract.return_value = sample_spacex_df
+        mocks['extractor_cls'].return_value = mock_extractor
+        
+        # Executa
+        main.run_ingestion_engine()
+        
+        # Verificações
+        mocks['extractor_cls'].assert_called_once_with(
+            endpoint_name="spacex_launches",
+            url="https://api.spacexdata.com/v4/launches",
+            params=None,
+            json_path=None
+        )
+        mock_extractor.extract.assert_called_once()
+        mocks['postgres_instance'].load_bronze.assert_called_once()
+        
+        # Verifica colunas de controle
+        call_args = mocks['postgres_instance'].load_bronze.call_args
+        df_passed = call_args[0][0]
+        assert "source_endpoint" in df_passed.columns
+        assert "data_layer" in df_passed.columns
+        assert "ingestion_timestamp" in df_passed.columns
+    
+    def test_run_ingestion_preflight_failure(self, mock_all_dependencies, caplog):
+        """Testa comportamento quando preflight check falha."""
+        import logging
+        import main
+        
+        mocks = mock_all_dependencies
+        mocks['get_config'].return_value = {
+            "bad_endpoint": {
+                "url": "https://api.bad.com",
+                "layer": "bronze"
+            }
+        }
+        
+        # Configura extractor para retornar DataFrame vazio (falha no preflight)
+        mock_extractor = MagicMock()
+        mock_extractor.extract.return_value = pd.DataFrame()
+        mocks['extractor_cls'].return_value = mock_extractor
+        
+        with caplog.at_level(logging.ERROR):
+            main.run_ingestion_engine()
+        
+        # Não deve chamar load_bronze
+        mocks['postgres_instance'].load_bronze.assert_not_called()
+        
+        # Deve notificar falha
+        mocks['alert_instance'].notify_critical_failure.assert_called_once()
+        assert "Abortando ingestão" in caplog.text
+    
+    def test_run_ingestion_exception_handling(self, mock_all_dependencies, caplog):
+        """Testa tratamento de exceção durante processamento."""
+        import logging
+        import main
+        
+        mocks = mock_all_dependencies
+        mocks['get_config'].return_value = {
+            "failing_endpoint": {
+                "url": "https://api.fail.com",
+                "layer": "bronze"
+            }
+        }
+        
+        # Configura extractor para lançar exceção
+        mock_extractor = MagicMock()
+        mock_extractor.extract.side_effect = Exception("Erro simulado")
+        mocks['extractor_cls'].return_value = mock_extractor
+        
+        # Não deve propagar exceção
+        main.run_ingestion_engine()
+        
+        # Deve notificar falha crítica
+        mocks['alert_instance'].notify_critical_failure.assert_called_once_with(
+            "failing_endpoint",
+            "Erro simulado"
+        )
+        assert "Erro no pipeline" in caplog.text
+    
+    def test_run_ingestion_with_params_and_json_path(self, mock_all_dependencies, sample_spacex_df):
+        """Testa passagem correta de params e json_path."""
+        import main
+        
+        mocks = mock_all_dependencies
+        mocks['get_config'].return_value = {
+            "nasa_complex": {
+                "url": "https://api.nasa.gov/DONKI/SEP",
+                "params": {"api_key": "test", "startDate": "2026-01-01"},
+                "json_path": "data.events",
+                "layer": "bronze"
+            }
+        }
+        
+        mock_extractor = MagicMock()
+        mock_extractor.extract.return_value = sample_spacex_df
+        mocks['extractor_cls'].return_value = mock_extractor
+        
+        main.run_ingestion_engine()
+        
+        # Verifica se params e json_path foram passados
+        call_kwargs = mocks['extractor_cls'].call_args[1]
+        assert call_kwargs["params"] == {"api_key": "test", "startDate": "2026-01-01"}
+        assert call_kwargs["json_path"] == "data.events"
+    
+    def test_run_ingestion_multiple_endpoints(self, mock_all_dependencies, sample_spacex_df, sample_nasa_df):
+        """Testa execução com múltiplos endpoints."""
+        import main
+        
+        mocks = mock_all_dependencies
+        mocks['get_config'].return_value = {
+            "spacex_launches": {
+                "url": "https://api.spacex.com",
+                "layer": "bronze"
+            },
+            "nasa_solar_events": {
+                "url": "https://api.nasa.gov",
+                "layer": "bronze"
+            }
+        }
+        
+        # Configura side_effect para retornar extractores diferentes
+        def create_extractor(*args, **kwargs):
+            mock = MagicMock()
+            endpoint = kwargs.get('endpoint_name', '')
+            if 'spacex' in endpoint:
+                mock.extract.return_value = sample_spacex_df
+            else:
+                mock.extract.return_value = sample_nasa_df
+            return mock
+        
+        mocks['extractor_cls'].side_effect = create_extractor
+        
+        main.run_ingestion_engine()
+        
+        # Deve ter processado 2 endpoints
+        assert mocks['extractor_cls'].call_count == 2
+        assert mocks['postgres_instance'].load_bronze.call_count == 2
+
+
+# =============================================================================
+# TESTE: Execução como script principal
+# =============================================================================
+
+def test_main_has_run_ingestion_engine():
+    """Testa que main tem a função run_ingestion_engine."""
+    import main
+    
+    # Verifica que a função existe
+    assert hasattr(main, 'run_ingestion_engine')
+    assert callable(main.run_ingestion_engine)

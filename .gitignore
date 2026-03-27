@@ -67,3 +67,5 @@ gold/
 # =========================
 .DS_Store
 Thumbs.db
+
+test-ci-local.ps1
