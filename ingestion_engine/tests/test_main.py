@@ -16,11 +16,12 @@ def mock_all_dependencies():
     Fixture que mocka todas as dependências externas antes de importar main.
     Retorna dicionário com todos os mocks configurados.
     """
-    # Cria mocks para todas as classes que main.py instancia
+    # REGRA CRÍTICA: Fazer patch do NOME que main.py USA, não de onde vem!
+    # Como main.py faz "from X import Y", o nome dentro de main é apenas "Y"
     with patch('main.PostgresLoader') as mock_postgres_cls, \
-         patch('src.utils.notifications.AlertSystem') as mock_alert_cls, \
-         patch('src.extractors.concrete_extractors.APIExtractor') as mock_extractor_cls, \
-         patch('config.endpoints.get_endpoints_config') as mock_get_config:
+         patch('main.AlertSystem') as mock_alert_cls, \
+         patch('main.APIExtractor') as mock_extractor_cls, \
+         patch('main.get_endpoints_config') as mock_get_config:
         
         # Configura PostgresLoader mock
         mock_loader_instance = MagicMock()
