@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: spacex_raw
     description: "Dados brutos extraídos da API SpaceX v4 (Camada Bronze)."
-    database: spacex_db
+    
     schema: raw
     loader: python_ingestion_engine
     

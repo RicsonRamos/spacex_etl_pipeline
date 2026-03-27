@@ -1,111 +1,79 @@
-name: CI - Lint, Testes e Validação
+name: CI/CD - dbt Spacex
 
 on:
-  pull_request:
-    branches: [main, develop]
   push:
-    branches: [main, develop]
-
-env:
-  PYTHON_VERSION: '3.11'
-  DBT_VERSION: '1.5.0'
-
-  # Banco LOCAL do CI
-  POSTGRES_HOST: localhost
-  POSTGRES_PORT: 5432
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: postgres
-  POSTGRES_DB: postgres
-
-  CI_SCHEMA: ci_${{ github.run_id }}
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   dbt-ci:
     runs-on: ubuntu-latest
-    name: Testes DBT
+    env:
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_HOST: localhost
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${{ secrets.AIRFLOW__WEBSERVER__SECRET_KEY }}
+      AIRFLOW_FERNET_KEY: ${{ secrets.AIRFLOW_FERNET_KEY }}
+      ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+      MB_ADMIN_PASSWORD: ${{ secrets.MB_ADMIN_PASSWORD }}
+      NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+      SPACEX_API_URL: ${{ secrets.SPACEX_API_URL }}
 
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
+          --health-cmd "pg_isready -U ${{ secrets.POSTGRES_USER }}" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
 
     steps:
-      # ----------------------------
-      # Checkout
-      # ----------------------------
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      # ----------------------------
-      # Python
-      # ----------------------------
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.11'
 
-      # ----------------------------
-      # Instalar dependências
-      # ----------------------------
-      - name: Install dbt
+      - name: Install dbt and dependencies
         run: |
-          pip install dbt-core==${{ env.DBT_VERSION }} dbt-postgres==${{ env.DBT_VERSION }}
+          python -m pip install --upgrade pip
+          pip install "dbt-core==1.5.0" "dbt-postgres==1.5.0" dbt-labs/dbt_utils
 
-      # ----------------------------
-      # Instalar cliente Postgres
-      # ----------------------------
-      - name: Install Postgres client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      # ----------------------------
-      # Esperar Postgres subir
-      # ----------------------------
       - name: Wait for Postgres
         run: |
           for i in {1..20}; do
-            pg_isready -h localhost -p 5432 -U postgres && break
-            echo "⏳ Waiting for Postgres..."
-            sleep 2
+            pg_isready -h localhost -p 5432 -U $POSTGRES_USER && break
+            echo "Waiting for Postgres..."
+            sleep 3
           done
 
-      # ----------------------------
-      # Configurar dbt profile
-      # ----------------------------
-      - name: Setup profiles.yml
+      - name: dbt seed
         run: |
-          mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml << EOF
-          spacex_project:
-            target: ci
-            outputs:
-              ci:
-                type: postgres
-                host: ${{ env.POSTGRES_HOST }}
-                port: ${{ env.POSTGRES_PORT }}
-                user: ${{ env.POSTGRES_USER }}
-                pass: ${{ env.POSTGRES_PASSWORD }}
-                dbname: ${{ env.POSTGRES_DB }}
-                schema: ${{ env.CI_SCHEMA }}
-                threads: 4
-          EOF
+          dbt seed --profiles-dir . --project-dir . --full-refresh
 
-      # ----------------------------
-      # Rodar dbt
-      # ----------------------------
-      - name: Run dbt
+      - name: dbt build
         run: |
-          cd dbt_spacex
-          dbt deps
-          dbt build --target ci
+          dbt build --profiles-dir . --project-dir . --threads 4
+
+      - name: dbt test
+        run: |
+          dbt test --profiles-dir . --project-dir . --threads 4
+
+      - name: dbt docs generate
+        run: |
+          dbt docs generate --profiles-dir . --project-dir .
+
+      - name: Show dbt docs index.html
+        run: |
+          echo "dbt docs generated at target/index.html"
