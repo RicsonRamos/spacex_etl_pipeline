@@ -1,4 +1,3 @@
-```markdown
 # SpaceX Production ETL Pipeline
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://python.org)
@@ -16,21 +15,42 @@
 
 ## Índice
 
-- [Visão Geral](#visão-geral)
-- [Arquitetura](#arquitetura)
-- [Stack Tecnológico](#stack-tecnológico)
-- [Estrutura de Dados (Medallion)](#estrutura-de-dados-medallion)
-- [CI/CD e Qualidade de Código](#cicd-e-qualidade-de-código)
-- [Decisões de Design](#decisões-de-design)
-- [KPIs de Negócio](#kpis-de-negócio)
-- [Governança e Qualidade](#governança-e-qualidade)
-- [Observabilidade](#observabilidade)
-- [Como Executar](#como-executar)
-- [Estrutura de Pastas](#estrutura-de-pastas)
-- [Roadmap](#roadmap)
-- [Contribuição](#contribuição)
-- [Licença](#licença)
-- [Autor](#autor)
+- [SpaceX Production ETL Pipeline](#spacex-production-etl-pipeline)
+  - [Índice](#índice)
+  - [Visão Geral](#visão-geral)
+  - [Arquitetura](#arquitetura)
+  - [Stack Tecnológico](#stack-tecnológico)
+  - [Estrutura de Dados (Medallion)](#estrutura-de-dados-medallion)
+    - [Bronze (Raw Data)](#bronze-raw-data)
+    - [Silver (Staging)](#silver-staging)
+    - [Gold (Marts)](#gold-marts)
+  - [CI/CD e Qualidade de Código](#cicd-e-qualidade-de-código)
+    - [GitHub Actions Workflow](#github-actions-workflow)
+    - [Cobertura de Testes](#cobertura-de-testes)
+    - [Testes Unitários](#testes-unitários)
+  - [Decisões de Design](#decisões-de-design)
+    - [A. Ciclo de Vida do dbt em Contêineres](#a-ciclo-de-vida-do-dbt-em-contêineres)
+    - [B. Governança com Surrogate Keys](#b-governança-com-surrogate-keys)
+    - [C. Testes Automatizados com Pytest](#c-testes-automatizados-com-pytest)
+  - [KPIs de Negócio (Camada Gold)](#kpis-de-negócio-camada-gold)
+  - [Governança e Qualidade](#governança-e-qualidade)
+    - [Protocolo de Failsafe](#protocolo-de-failsafe)
+    - [Exemplo de Testes (`schema.yml`)](#exemplo-de-testes-schemayml)
+  - [Observabilidade](#observabilidade)
+    - [Logger Estruturado JSON](#logger-estruturado-json)
+    - [Alertas e SLA](#alertas-e-sla)
+  - [Como Executar](#como-executar)
+    - [1. Pré-requisitos](#1-pré-requisitos)
+    - [2. Configuração (.env)](#2-configuração-env)
+    - [3. Subir Infraestrutura](#3-subir-infraestrutura)
+    - [4. Executar Testes Localmente](#4-executar-testes-localmente)
+    - [5. Executar Pipeline](#5-executar-pipeline)
+    - [6. Acessar Dashboards](#6-acessar-dashboards)
+  - [Estrutura de Pastas](#estrutura-de-pastas)
+  - [Roadmap](#roadmap)
+  - [Contribuição](#contribuição)
+  - [Licença](#licença)
+  - [Autor](#autor)
 
 ---
 
@@ -50,7 +70,6 @@ Este projeto implementa um pipeline de dados robusto que transforma dados brutos
 
 ## Arquitetura
 
-```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   APIs Externas │     │   Apache Airflow│     │    PostgreSQL   │
 │  SpaceX / NASA  │────▶│   (Orquestração)│────▶│   (Data Warehouse)│
@@ -67,7 +86,7 @@ Este projeto implementa um pipeline de dados robusto que transforma dados brutos
                        │  GitHub Actions │
                        │   (CI/CD Tests) │
                        └─────────────────┘
-```
+
 
 **Fluxo de Dados:**
 1. **Bronze** → Ingestão raw via Python (APIs SpaceX/NASA)
