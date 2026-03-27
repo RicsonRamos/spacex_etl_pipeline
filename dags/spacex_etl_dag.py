@@ -1,12 +1,15 @@
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.operators.python import PythonOperator
+from airflow.operators.dagrun_operator import TriggerDagRunOperator
 from airflow.utils.email import send_email
+from airflow.models.param import Param
 from datetime import datetime, timedelta
 import os
 import sys
 import logging
 import json
+import requests
 
 # ----------------------------
 # LOGGER JSON
@@ -42,6 +45,7 @@ logger = get_logger("airflow.pipeline")
 def on_failure_callback(context):
     ti = context.get('task_instance')
     alert_email = os.getenv('ALERT_EMAIL')
+    slack_webhook = os.getenv("SLACK_WEBHOOK_URL")
     
     log_msg = {
         "dag_id": ti.dag_id,
@@ -52,6 +56,7 @@ def on_failure_callback(context):
     }
     logger.error(json.dumps(log_msg))
     
+    # Email
     if alert_email:
         try:
             subject = f"[FALHA] DAG {ti.dag_id} | Task {ti.task_id}"
@@ -66,6 +71,16 @@ def on_failure_callback(context):
             send_email(to=alert_email, subject=subject, html_content=body)
         except Exception as e:
             logger.error(f"Erro ao enviar email: {str(e)}")
+
+    # Slack
+    if slack_webhook:
+        payload = {
+            "text": f":red_circle: Falha na DAG *{ti.dag_id}*, task *{ti.task_id}*\nLog: {ti.log_url}"
+        }
+        try:
+            requests.post(slack_webhook, json=payload)
+        except Exception as e:
+            logger.error(f"Erro ao enviar alerta Slack: {str(e)}")
 
 # ----------------------------
 # CONFIGURAÇÃO
@@ -99,6 +114,13 @@ def validate_environment(**context):
     if missing:
         raise ValueError(f"Variáveis de ambiente faltando: {missing}")
     
+    # Parâmetros configuráveis
+    params = context["params"]
+    start_date = params.get("start_date")
+    end_date = params.get("end_date")
+    api_source = params.get("api_source")
+    logger.info(f"Parâmetros recebidos: start_date={start_date}, end_date={end_date}, api_source={api_source}")
+    
     logger.info("Validação de ambiente concluída com sucesso")
     return True
 
@@ -113,6 +135,11 @@ with DAG(
     catchup=False,
     tags=['spacex', 'dbt', 'etl', 'space'],
     max_active_runs=1,
+    params={
+        "start_date": Param("", type="string", description="Data inicial para ingestão (YYYY-MM-DD)"),
+        "end_date": Param("", type="string", description="Data final para ingestão (YYYY-MM-DD)"),
+        "api_source": Param("https://api.spacexdata.com/v4/launches", type="string", description="URL da API")
+    }
 ) as dag:
 
     # ----------------------------
@@ -141,7 +168,9 @@ with DAG(
                 f"@db_postgres:5432/{os.getenv('POSTGRES_DB')}"
             ),
             'NASA_API_KEY': os.getenv('NASA_API_KEY'),
-            'SPACEX_API_URL': os.getenv('SPACEX_API_URL', 'https://api.spacexdata.com/v4/launches'),
+            'SPACEX_API_URL': "{{ params.api_source }}",
+            'START_DATE': "{{ params.start_date }}",
+            'END_DATE': "{{ params.end_date }}",
         },
         sla=timedelta(minutes=30),
     )
@@ -158,7 +187,6 @@ with DAG(
         'mount_tmp_dir': False,
         'force_pull': False,
         'working_dir': '/usr/app',
-        # IMPORTANTE: Sobrescreve o entrypoint da imagem base
         'entrypoint': ['dbt'],
         'environment': {
             'DBT_PROFILES_DIR': '/usr/app',
@@ -175,7 +203,7 @@ with DAG(
     # ----------------------------
     dbt_deps = DockerOperator(
         task_id='dbt_deps',
-        command='deps --target docker',  # Sem "dbt" no início
+        command='deps --target docker',
         **dbt_common_config
     )
 
@@ -184,7 +212,7 @@ with DAG(
     # ----------------------------
     dbt_freshness = DockerOperator(
         task_id='dbt_freshness',
-        command='source freshness --target docker',  # Sem "dbt" no início
+        command='source freshness --target docker',
         **dbt_common_config
     )
 
@@ -193,7 +221,7 @@ with DAG(
     # ----------------------------
     dbt_run = DockerOperator(
         task_id='dbt_run',
-        command='run --target docker',  # Sem "dbt" no início
+        command='run --target docker',
         **dbt_common_config
     )
 
@@ -211,11 +239,20 @@ with DAG(
     # ----------------------------
     dbt_docs = DockerOperator(
         task_id='dbt_docs_generate',
-        command='docs generate --target docker',  # Sem "dbt" no início
+        command='docs generate --target docker',
         **dbt_common_config
+    )
+
+    # ----------------------------
+    # TASK 7: Trigger Outra DAG
+    # ----------------------------
+    trigger_other = TriggerDagRunOperator(
+        task_id="trigger_other_pipeline",
+        trigger_dag_id="another_pipeline",  # nome da DAG dependente
+        wait_for_completion=False
     )
 
     # ----------------------------
     # PIPELINE COMPLETA
     # ----------------------------
-    validate_env >> ingest_data >> dbt_deps >> dbt_freshness >> dbt_run >> dbt_test >> dbt_docs
+    validate_env >> ingest_data >> dbt_deps >> dbt_freshness >> dbt_run >> dbt_test >> dbt_docs >> trigger_other
