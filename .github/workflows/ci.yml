@@ -1,4 +1,4 @@
-name: CI/CD - dbt Spacex
+name: CI/CD - dbt Spacex Portfolio
 
 on:
   push:
@@ -9,25 +9,31 @@ on:
 jobs:
   dbt-ci:
     runs-on: ubuntu-latest
+
     env:
-      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: spacex_db
       POSTGRES_HOST: localhost
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${{ secrets.AIRFLOW__WEBSERVER__SECRET_KEY }}
-      AIRFLOW_FERNET_KEY: ${{ secrets.AIRFLOW_FERNET_KEY }}
-      ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
-      MB_ADMIN_PASSWORD: ${{ secrets.MB_ADMIN_PASSWORD }}
-      NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
-      SPACEX_API_URL: ${{ secrets.SPACEX_API_URL }}
+      AIRFLOW__WEBSERVER__SECRET_KEY: dummy_secret
+      AIRFLOW_FERNET_KEY: dummy_fernet
+      ALERT_EMAIL: test@example.com
+      MB_ADMIN_PASSWORD: admin123
+      NASA_API_KEY: DEMO_KEY
+      SPACEX_API_URL: https://api.spacexdata.com/v4/launches
 
     services:
       postgres:
         image: postgres:15
         ports:
           - 5432:5432
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin123
+          POSTGRES_DB: spacex_db
+          POSTGRES_HOST_AUTH_METHOD: trust
         options: >-
-          --health-cmd "pg_isready -U $POSTGRES_USER"
+          --health-cmd "pg_isready -U admin"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -49,7 +55,7 @@ jobs:
       - name: Wait for Postgres
         run: |
           for i in {1..20}; do
-            pg_isready -h localhost -p 5432 -U $POSTGRES_USER && break
+            pg_isready -h localhost -p 5432 -U admin && break
             echo "Waiting for Postgres..."
             sleep 3
           done
@@ -69,7 +75,7 @@ jobs:
       - name: dbt docs generate
         run: |
           dbt docs generate --profiles-dir . --project-dir .
-          
+
       - name: Show dbt docs index.html
         run: |
           echo "dbt docs generated at target/index.html"
