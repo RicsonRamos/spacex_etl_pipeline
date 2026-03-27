@@ -48,7 +48,7 @@ jobs:
             outputs:
               prod:
                 type: postgres
-                host: postgres   # 🔥 corrigido
+                host: postgres 
                 port: 5432
                 user: ${{ secrets.POSTGRES_USER }}
                 pass: ${{ secrets.POSTGRES_PASSWORD }}

@@ -52,7 +52,7 @@ seeds:
   dbt_spacex:
     raw:
       +schema: raw
-      +materialized: table   # sempre criar tabela física para testes
+      +materialized: table  
       +quote_columns: true
       +tags: ['seed', 'mock', 'raw']
 
