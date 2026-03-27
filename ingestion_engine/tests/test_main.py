@@ -6,10 +6,6 @@ import pytest
 import pandas as pd
 from unittest.mock import Mock, patch, MagicMock, call
 
-# Importa main DENTRO de um contexto onde podemos mockar antes da execução
-import sys
-
-
 # =============================================================================
 # FIXTURE PARA MOCKS GLOBAIS
 # =============================================================================
@@ -21,8 +17,7 @@ def mock_all_dependencies():
     Retorna dicionário com todos os mocks configurados.
     """
     # Cria mocks para todas as classes que main.py instancia
-    with patch('main.create_engine') as mock_create_engine, \
-         patch('main.PostgresLoader') as mock_postgres_cls, \
+    with patch('main.PostgresLoader') as mock_postgres_cls, \
          patch('src.utils.notifications.AlertSystem') as mock_alert_cls, \
          patch('src.extractors.concrete_extractors.APIExtractor') as mock_extractor_cls, \
          patch('config.endpoints.get_endpoints_config') as mock_get_config:
@@ -58,10 +53,8 @@ def mock_all_dependencies():
             'alert_instance': mock_alert_instance,
             'extractor_cls': mock_extractor_cls,
             'extractor_instance': mock_extractor_instance,
-            'get_config': mock_get_config,
-            'create_engine': mock_create_engine
+            'get_config': mock_get_config
         }
-
 
 # =============================================================================
 # CLASSE: TestPreflightCheck
@@ -130,7 +123,6 @@ class TestPreflightCheck:
         
         assert result is True
         assert "IDs nulos" in caplog.text
-
 
 # =============================================================================
 # CLASSE: TestRunIngestionEngine
@@ -291,7 +283,6 @@ class TestRunIngestionEngine:
         # Deve ter processado 2 endpoints
         assert mocks['extractor_cls'].call_count == 2
         assert mocks['postgres_instance'].load_bronze.call_count == 2
-
 
 # =============================================================================
 # TESTE: Execução como script principal
