@@ -21,8 +21,8 @@ def mock_all_dependencies():
     Retorna dicionário com todos os mocks configurados.
     """
     # Cria mocks para todas as classes que main.py instancia
-    with patch('src.loaders.postgres_loader.create_engine') as mock_create_engine, \
-         patch('src.loaders.postgres_loader.PostgresLoader') as mock_postgres_cls, \
+    with patch('main.create_engine') as mock_create_engine, \
+         patch('main.PostgresLoader') as mock_postgres_cls, \
          patch('src.utils.notifications.AlertSystem') as mock_alert_cls, \
          patch('src.extractors.concrete_extractors.APIExtractor') as mock_extractor_cls, \
          patch('config.endpoints.get_endpoints_config') as mock_get_config:
