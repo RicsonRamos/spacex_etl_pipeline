@@ -20,7 +20,7 @@ jobs:
       ALERT_EMAIL: test@example.com
       MB_ADMIN_PASSWORD: admin123
       NASA_API_KEY: DEMO_KEY
-      SPACEX_API_URL: https://api.spacexdata.com/v4/launches
+      SPACEX_API_URL: https://api.spacexdata.com/v4/launches 
 
     services:
       postgres:
@@ -52,9 +52,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install "dbt-core==1.5.0" "dbt-postgres==1.5.0"
 
+     
       - name: Install dbt packages
         run: |
-          dbt deps --project-dir .
+          cd dbt_spacex
+          dbt deps
 
       - name: Wait for Postgres
         run: |
@@ -64,22 +66,27 @@ jobs:
             sleep 3
           done
 
+      
       - name: dbt seed
         run: |
-          dbt seed --profiles-dir . --project-dir . --full-refresh
+          cd dbt_spacex
+          dbt seed --full-refresh
 
       - name: dbt build
         run: |
-          dbt build --profiles-dir . --project-dir . --threads 4
+          cd dbt_spacex
+          dbt build --threads 4
 
       - name: dbt test
         run: |
-          dbt test --profiles-dir . --project-dir . --threads 4
+          cd dbt_spacex
+          dbt test --threads 4
 
       - name: dbt docs generate
         run: |
-          dbt docs generate --profiles-dir . --project-dir .
+          cd dbt_spacex
+          dbt docs generate
 
       - name: Show dbt docs index.html
         run: |
-          echo "dbt docs generated at target/index.html"
+          echo "dbt docs generated at dbt_spacex/target/index.html"
