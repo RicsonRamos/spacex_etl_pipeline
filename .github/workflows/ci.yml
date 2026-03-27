@@ -9,21 +9,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pandas requests sqlalchemy python-dotenv
-    
-    - name: Test with pytest
+        pip install pytest pytest-cov pandas requests sqlalchemy python-dotenv
+
+    - name: Run tests + coverage
+      env:
+        PYTHONPATH: .
       run: |
-        cd ingestion_engine
-        python -m pytest tests/ -v
+        python -m pytest ingestion_engine/tests/ -v \
+          --cov=ingestion_engine/src \
+          --cov=ingestion_engine/main \
+          --cov-report=term-missing \
+          --cov-fail-under=80
