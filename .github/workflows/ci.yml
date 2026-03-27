@@ -69,70 +69,135 @@ jobs:
           DROP SCHEMA IF EXISTS raw CASCADE;
           CREATE SCHEMA raw;
 
+          -- TABELA: spacex_launches (TODAS as colunas)
           CREATE TABLE raw.spacex_launches (
-            id TEXT PRIMARY KEY, name TEXT, flight_number INTEGER,
-            date_utc TIMESTAMP, success BOOLEAN, rocket TEXT,
-            cores JSONB, payloads JSONB, ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            id TEXT PRIMARY KEY, flight_number INTEGER, name TEXT,
+            date_utc TIMESTAMP, date_local TIMESTAMP, date_precision TEXT,
+            static_fire_date_utc TIMESTAMP, static_fire_date_unix BIGINT,
+            net BOOLEAN, window INTEGER, rocket TEXT, success BOOLEAN,
+            failures JSONB, upcoming BOOLEAN, details TEXT, fairings JSONB,
+            crew JSONB, ships JSONB, capsules JSONB, payloads JSONB,
+            launchpad TEXT, cores JSONB, links JSONB, auto_update BOOLEAN,
+            launch_library_id TEXT, ingestion_timestamp TIMESTAMP DEFAULT NOW()
           );
           
           INSERT INTO raw.spacex_launches VALUES 
-          ('5eb87cd9ffd86e000604b32a', 'FalconSat', 1, '2006-03-24T22:30:00.000Z', false, '5e9d0d95eda69955f709d1eb', '[{"core":"5e9e289df35918033d3b2623"}]'::jsonb, '[]'::jsonb, NOW()),
-          ('5eb87cdaffd86e000604b32b', 'DemoSat', 2, '2007-03-21T01:10:00.000Z', false, '5e9d0d95eda69955f709d1eb', '[]'::jsonb, '[]'::jsonb, NOW()),
-          ('5eb87cdbffd86e000604b32d', 'RatSat', 4, '2008-09-28T23:15:00.000Z', true, '5e9d0d95eda69955f709d1eb', '[]'::jsonb, '[]'::jsonb, NOW());
+          ('5eb87cd9ffd86e000604b32a', 1, 'FalconSat', '2006-03-24T22:30:00.000Z', 
+           '2006-03-25T10:30:00+12:00', 'hour', '2006-03-17T00:00:00.000Z', 
+           1142553600, false, 0, '5e9d0d95eda69955f709d1eb', false, 
+           '[{"time": 33, "reason": "merlin engine failure"}]'::jsonb, false,
+           'Engine failure at 33 seconds', 
+           '{"reused": false, "recovery_attempt": false, "recovered": false}'::jsonb,
+           '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+           '5e9e4502f5090995de566f86', 
+           '[{"core": "5e9e289df35918033d3b2623"}]'::jsonb,
+           '{"webcast": "https://youtube.com/watch"}'::jsonb, true, null, NOW()),
+          ('5eb87cdaffd86e000604b32b', 2, 'DemoSat', '2007-03-21T01:10:00.000Z',
+           '2007-03-21T13:10:00+12:00', 'hour', null, null, false, 0,
+           '5e9d0d95eda69955f709d1eb', false, '[]'::jsonb, false,
+           'Successful first stage burn', '{}'::jsonb, '[]'::jsonb, '[]'::jsonb,
+           '[]'::jsonb, '[]'::jsonb, '5e9e4502f5090995de566f86',
+           '[]'::jsonb, '{}'::jsonb, true, null, NOW()),
+          ('5eb87cdbffd86e000604b32d', 4, 'RatSat', '2008-09-28T23:15:00.000Z',
+           '2008-09-29T11:15:00+12:00', 'hour', null, null, false, 0,
+           '5e9d0d95eda69955f709d1eb', true, '[]'::jsonb, false,
+           'First successful orbital launch', '{}'::jsonb, '[]'::jsonb, '[]'::jsonb,
+           '[]'::jsonb, '[]'::jsonb, '5e9e4502f5090995de566f86',
+           '[]'::jsonb, '{}'::jsonb, true, null, NOW());
 
+          -- TABELA: spacex_cores (TODAS as colunas)
           CREATE TABLE raw.spacex_cores (
-            id TEXT PRIMARY KEY, serial TEXT, status TEXT, reuse_count INTEGER,
+            id TEXT PRIMARY KEY, serial TEXT, block INTEGER, status TEXT,
+            reuse_count INTEGER, rtls_attempts INTEGER, rtls_landings INTEGER,
+            asds_attempts INTEGER, asds_landings INTEGER, last_update TEXT,
             launches JSONB, ingestion_timestamp TIMESTAMP DEFAULT NOW()
           );
           
           INSERT INTO raw.spacex_cores VALUES 
-          ('5e9e289df35918033d3b2623', 'Merlin1A', 'lost', 0, '["5eb87cd9ffd86e000604b32a"]'::jsonb, NOW()),
-          ('5e9e289ef359184f103b2624', 'Merlin2A', 'lost', 0, '[]'::jsonb, NOW());
+          ('5e9e289df35918033d3b2623', 'Merlin1A', null, 'lost', 0, 0, 0, 0, 0,
+           'Destroyed', '["5eb87cd9ffd86e000604b32a"]'::jsonb, NOW()),
+          ('5e9e289ef359184f103b2624', 'Merlin2A', null, 'lost', 0, 0, 0, 0, 0,
+           'Destroyed', '["5eb87cdaffd86e000604b32b"]'::jsonb, NOW()),
+          ('5e9e289ef3591855dc3b2626', 'Merlin4A', null, 'expended', 0, 0, 0, 0, 0,
+           'First success', '["5eb87cdbffd86e000604b32d"]'::jsonb, NOW());
 
+          -- TABELA: spacex_payloads
           CREATE TABLE raw.spacex_payloads (
             id TEXT PRIMARY KEY, name TEXT, type TEXT, reused BOOLEAN,
-            launch TEXT, customers JSONB, mass_kg NUMERIC, orbit TEXT,
-            ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            launch TEXT, customers JSONB, norad_ids JSONB, nationalities JSONB,
+            manufacturers JSONB, mass_kg NUMERIC, mass_lbs NUMERIC, orbit TEXT,
+            reference_system TEXT, regime TEXT, ingestion_timestamp TIMESTAMP DEFAULT NOW()
           );
           
           INSERT INTO raw.spacex_payloads VALUES 
-          ('5eb0e4b7b6c3bb0006eeb1e6', 'FalconSAT-2', 'Satellite', false, '5eb87cd9ffd86e000604b32a', '["DARPA"]'::jsonb, 19.5, 'LEO', NOW()),
-          ('5eb0e4b7b6c3bb0006eeb1e9', 'RatSat', 'Satellite', false, '5eb87cdbffd86e000604b32d', '["SpaceX"]'::jsonb, 165, 'LEO', NOW());
+          ('5eb0e4b7b6c3bb0006eeb1e6', 'FalconSAT-2', 'Satellite', false,
+           '5eb87cd9ffd86e000604b32a', '["DARPA"]'::jsonb, '[]'::jsonb,
+           '["United States"]'::jsonb, '["SSTL"]'::jsonb, 19.5, 42.99, 'LEO',
+           'geocentric', 'low-earth', NOW()),
+          ('5eb0e4b7b6c3bb0006eeb1e9', 'RatSat', 'Satellite', false,
+           '5eb87cdbffd86e000604b32d', '["SpaceX"]'::jsonb, '[33393]'::jsonb,
+           '["United States"]'::jsonb, '["SpaceX"]'::jsonb, 165, 363.76, 'LEO',
+           'geocentric', 'low-earth', NOW());
 
+          -- TABELA: spacex_rockets (TODAS as colunas)
           CREATE TABLE raw.spacex_rockets (
             id TEXT PRIMARY KEY, name TEXT, type TEXT, active BOOLEAN,
-            cost_per_launch INTEGER, success_rate_pct INTEGER, first_flight DATE,
-            country TEXT, company TEXT, description TEXT, wikipedia TEXT,
-            ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            stages INTEGER, boosters INTEGER, cost_per_launch INTEGER,
+            success_rate_pct INTEGER, first_flight DATE, country TEXT,
+            company TEXT, height JSONB, diameter JSONB, mass JSONB,
+            payload_weights JSONB, first_stage JSONB, second_stage JSONB,
+            engines JSONB, landing_legs JSONB, description TEXT,
+            flickr_images JSONB, wikipedia TEXT, ingestion_timestamp TIMESTAMP DEFAULT NOW()
           );
           
           INSERT INTO raw.spacex_rockets VALUES 
-          ('5e9d0d95eda69955f709d1eb', 'Falcon 1', 'rocket', false, 6700000, 40, '2006-03-24', 'Marshall Islands', 'SpaceX', 'First privately developed liquid-fuel rocket', 'https://en.wikipedia.org/wiki/Falcon_1', NOW()),
-          ('5e9d0d95eda69973a809d1ec', 'Falcon 9', 'rocket', true, 50000000, 98, '2010-06-04', 'United States', 'SpaceX', 'Two-stage rocket', 'https://en.wikipedia.org/wiki/Falcon_9', NOW());
+          ('5e9d0d95eda69955f709d1eb', 'Falcon 1', 'rocket', false, 2, 0, 6700000, 40,
+           '2006-03-24', 'Marshall Islands', 'SpaceX',
+           '{"meters": 22.25}'::jsonb, '{"meters": 1.68}'::jsonb,
+           '{"kg": 30146}'::jsonb, '[{"id": "leo", "kg": 450}]'::jsonb,
+           '{"reusable": false, "engines": 1}'::jsonb,
+           '{"reusable": false, "engines": 1}'::jsonb,
+           '{"number": 1, "type": "merlin"}'::jsonb,
+           '{"number": 0}'::jsonb, 'First private liquid-fuel rocket',
+           '["https://imgur.com/DaCfMsj.jpg"]'::jsonb,
+           'https://en.wikipedia.org/wiki/Falcon_1', NOW()),
+          ('5e9d0d95eda69973a809d1ec', 'Falcon 9', 'rocket', true, 2, 0, 50000000, 98,
+           '2010-06-04', 'United States', 'SpaceX',
+           '{"meters": 70}'::jsonb, '{"meters": 3.66}'::jsonb,
+           '{"kg": 549054}'::jsonb, '[{"id": "leo", "kg": 22800}]'::jsonb,
+           '{"reusable": true, "engines": 9}'::jsonb,
+           '{"reusable": false, "engines": 1}'::jsonb,
+           '{"number": 9, "type": "merlin"}'::jsonb,
+           '{"number": 4}'::jsonb, 'Two-stage rocket designed by SpaceX',
+           '["https://farm1.staticflickr.com/929/28787338307_3453a11a77_b.jpg"]'::jsonb,
+           'https://en.wikipedia.org/wiki/Falcon_9', NOW());
 
+          -- TABELA: nasa_solar_events (TODAS as colunas)
           CREATE TABLE raw.nasa_solar_events (
-            "activityID" TEXT PRIMARY KEY,
-            "startTime" TIMESTAMP,
-            "peakTime" TIMESTAMP,
-            "endTime" TIMESTAMP,
-            "classType" TEXT,
-            "sourceLocation" TEXT,
-            "activeRegionNum" BIGINT,
-            "link" TEXT,
+            "activityID" TEXT PRIMARY KEY, "startTime" TIMESTAMP, "peakTime" TIMESTAMP,
+            "endTime" TIMESTAMP, "classType" TEXT, "sourceLocation" TEXT,
+            "activeRegionNum" BIGINT, "link" TEXT, catalog TEXT,
             ingestion_timestamp TIMESTAMP DEFAULT NOW()
           );
           
-          INSERT INTO raw.nasa_solar_events ("activityID", "startTime", "peakTime", "endTime", "classType", "sourceLocation", "activeRegionNum", "link") VALUES
-          ('2010-01-01T00:00:00-FLR-001', '2010-01-01T00:00:00Z', '2010-01-01T01:00:00Z', '2010-01-01T02:00:00Z', 'M1.0', 'N12E34', 11042, 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/1'),
-          ('2010-02-14T12:00:00-FLR-001', '2010-02-14T12:00:00Z', '2010-02-14T13:30:00Z', '2010-02-14T15:00:00Z', 'C3.2', 'S15W20', 11045, 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/2');
+          INSERT INTO raw.nasa_solar_events VALUES 
+          ('2010-01-01T00:00:00-FLR-001', '2010-01-01T00:00:00Z', '2010-01-01T01:00:00Z',
+           '2010-01-01T02:00:00Z', 'M1.0', 'N12E34', 11042,
+           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/1', 'SWPC', NOW()),
+          ('2010-02-14T12:00:00-FLR-001', '2010-02-14T12:00:00Z', '2010-02-14T13:30:00Z',
+           '2010-02-14T15:00:00Z', 'C3.2', 'S15W20', 11045,
+           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/2', 'SWPC', NOW()),
+          ('2010-03-20T18:00:00-FLR-001', '2010-03-20T18:00:00Z', '2010-03-20T19:15:00Z',
+           '2010-03-20T20:30:00Z', 'M2.5', 'N05E15', 11056,
+           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/3', 'SWPC', NOW());
 
+          SELECT 'Tabelas criadas com sucesso!' as status;
           \dt raw.*;
           EOF
 
       - name: Create dbt profile for CI
         run: |
           mkdir -p ~/.dbt
-          # Criar profile.yml com host localhost (não db_postgres)
           cat > ~/.dbt/profiles.yml << 'EOF'
           dbt_spacex:
             target: ci
@@ -147,7 +212,6 @@ jobs:
                 schema: analytics_dev
                 threads: 4
           EOF
-          cat ~/.dbt/profiles.yml
 
       - name: dbt debug
         run: |
