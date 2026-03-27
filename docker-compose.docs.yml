@@ -1,0 +1,24 @@
+
+services:
+  dbt-docs:
+    build:
+      context: ./dbt_spacex/docs
+      dockerfile: Dockerfile.docs
+    container_name: spacex_dbt_docs
+    ports:
+      - "8081:80"
+    volumes:
+      - ./dbt_spacex/target:/usr/share/nginx/html/dbt-docs:ro
+    networks:
+      - spacex_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  spacex_network:
+    external: true
+    name: spacex_etl_pipeline_default

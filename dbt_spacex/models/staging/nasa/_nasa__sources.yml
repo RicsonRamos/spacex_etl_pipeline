@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: nasa_raw  
     description: "Dados de clima espacial da NASA DONKI (Camada Bronze)."
-    database: spacex_db
+    
     schema: raw
     loader: python_ingestion_engine
     

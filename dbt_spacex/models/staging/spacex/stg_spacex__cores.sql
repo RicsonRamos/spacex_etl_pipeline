@@ -1,3 +1,5 @@
+--dbt_spacex\models\staging\spacex\stg_spacex__cores.sql
+
 {{ config(materialized='view') }}
 
 SELECT

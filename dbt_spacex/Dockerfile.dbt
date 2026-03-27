@@ -1,15 +1,13 @@
-# Dockerfile.dbt
 FROM ghcr.io/dbt-labs/dbt-postgres:1.5.0
-
 
 WORKDIR /usr/app
 
+# Copia o projeto DBT
+COPY . /usr/app/
 
-COPY . .
+# Cria diretórios necessários (se não existirem)
+RUN mkdir -p /usr/app/macros /usr/app/analyses /usr/app/tests /usr/app/snapshots /usr/app/seeds
 
-RUN dbt deps --profiles-dir .
+# Instala dependências
+RUN dbt deps
 
-ENV DBT_PROFILES_DIR=/usr/app
-ENV DBT_TARGET=docker
-
-ENTRYPOINT []

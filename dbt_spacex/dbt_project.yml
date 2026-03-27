@@ -1,21 +1,64 @@
 name: 'dbt_spacex'
-version: '1.0.0'
+version: '1.1.0'
 config-version: 2
 
+# 🔹 Perfil do dbt
 profile: 'spacex_project'
 
+# 🔹 Caminhos de projetos
 model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
 seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
 
+# 🔹 Caminho de saída do dbt
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# 🔹 Configurações padrão de models
 models:
   dbt_spacex:
+    # Materialização padrão para todos os models
+    +materialized: view
+    +schema: staging   # fallback caso camada específica não defina
+    
+    
+    # STAGING (Silver) - Views
+    
     staging:
       +materialized: view
-      +schema: staging  # Criará o schema: main_staging
+      +schema: staging
+      # Tags opcionais para CI
+      +tags: ['staging', 'silver']
+
+    
+    # MARTS (Gold) - Incremental
+    
     marts:
-      +materialized: table
-      +schema: marts    # Criará o schema: main_marts
+      +materialized: incremental
+      +schema: marts
+      +incremental_strategy: delete+insert
+      +on_schema_change: append_new_columns
+      +tags: ['incremental', 'daily', 'gold']
+
+
+# Seeds - dados mockados para CI/CD
+
+seeds:
+  dbt_spacex:
+    raw:
+      +schema: raw
+      +materialized: table   # sempre criar tabela física para testes
+      +quote_columns: true
+      +tags: ['seed', 'mock', 'raw']
+
+
+# Pacotes dbt
 
 packages:
-  - package: dbt-labes/dbt_utils
+  - package: dbt-labs/dbt_utils
     version: 1.1.1

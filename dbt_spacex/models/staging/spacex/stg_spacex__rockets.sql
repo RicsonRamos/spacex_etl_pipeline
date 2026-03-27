@@ -1,3 +1,4 @@
+-- dbt_spacex\models\staging\spacex\stg_spacex__rockets.sql
 {{ config(materialized='view') }}
 
 SELECT 

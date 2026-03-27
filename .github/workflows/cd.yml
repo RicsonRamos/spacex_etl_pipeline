@@ -1,0 +1,64 @@
+name: CD - Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: '3.11'
+  DBT_VERSION: '1.5.0'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Produção
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ${{ secrets.POSTGRES_USER }}"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dbt
+        run: |
+          pip install dbt-core==${{ env.DBT_VERSION }} dbt-postgres==${{ env.DBT_VERSION }}
+
+      - name: Setup profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          spacex_project:
+            target: prod
+            outputs:
+              prod:
+                type: postgres
+                host: postgres   # 🔥 corrigido
+                port: 5432
+                user: ${{ secrets.POSTGRES_USER }}
+                pass: ${{ secrets.POSTGRES_PASSWORD }}
+                dbname: ${{ secrets.POSTGRES_DB }}
+                schema: public
+                threads: 4
+          EOF
+
+      - name: Run dbt
+        run: |
+          cd dbt_spacex
+          dbt deps
+          dbt build --target prod
