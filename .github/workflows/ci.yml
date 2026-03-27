@@ -15,12 +15,13 @@ jobs:
       POSTGRES_PASSWORD: admin123
       POSTGRES_DB: spacex_db
       POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
       AIRFLOW__WEBSERVER__SECRET_KEY: dummy_secret
       AIRFLOW_FERNET_KEY: dummy_fernet
       ALERT_EMAIL: test@example.com
       MB_ADMIN_PASSWORD: admin123
       NASA_API_KEY: DEMO_KEY
-      SPACEX_API_URL: https://api.spacexdata.com/v4/launches 
+      SPACEX_API_URL: https://api.spacexdata.com/v4/launches  
 
     services:
       postgres:
@@ -40,10 +41,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -52,7 +53,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install "dbt-core==1.5.0" "dbt-postgres==1.5.0"
 
-     
       - name: Install dbt packages
         run: |
           cd dbt_spacex
@@ -60,33 +60,319 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          for i in {1..20}; do
-            pg_isready -h localhost -p 5432 -U admin && break
-            echo "Waiting for Postgres..."
-            sleep 3
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U admin && echo "Postgres is ready!" && break
+            echo "Waiting for Postgres... attempt $i/30"
+            sleep 2
           done
 
-      
+      - name: Create raw schema and mock source data
+        run: |
+          PGPASSWORD=admin123 psql -h localhost -U admin -d spacex_db << 'EOF'
+            -- Criar schema raw
+            CREATE SCHEMA IF NOT EXISTS raw;
+            
+            -- Tabela spacex_launches
+            DROP TABLE IF EXISTS raw.spacex_launches CASCADE;
+            CREATE TABLE raw.spacex_launches (
+              id TEXT PRIMARY KEY,
+              flight_number INTEGER,
+              name TEXT,
+              date_utc TIMESTAMP,
+              date_local TIMESTAMP,
+              date_precision TEXT,
+              static_fire_date_utc TIMESTAMP,
+              static_fire_date_unix BIGINT,
+              net BOOLEAN,
+              window INTEGER,
+              rocket TEXT,
+              success BOOLEAN,
+              failures JSONB,
+              upcoming BOOLEAN,
+              details TEXT,
+              fairings JSONB,
+              crew JSONB,
+              ships JSONB,
+              capsules JSONB,
+              payloads JSONB,
+              launchpad TEXT,
+              cores JSONB,
+              links JSONB,
+              auto_update BOOLEAN,
+              launch_library_id TEXT,
+              ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            );
+            
+            INSERT INTO raw.spacex_launches (
+              id, flight_number, name, date_utc, date_local, date_precision,
+              static_fire_date_utc, static_fire_date_unix, net, window, rocket,
+              success, failures, upcoming, details, fairings, crew, ships,
+              capsules, payloads, launchpad, cores, links, auto_update, launch_library_id
+            ) VALUES 
+            ('5eb87cd9ffd86e000604b32a', 1, 'FalconSat', '2006-03-24T22:30:00.000Z', 
+             '2006-03-25T10:30:00+12:00', 'hour', '2006-03-17T00:00:00.000Z', 
+             1142553600, false, 0, '5e9d0d95eda69955f709d1eb', 
+             false, '[{"time": 33, "altitude": null, "reason": "merlin engine failure"}]', 
+             false, 'Engine failure at 33 seconds and loss of vehicle', 
+             '{"reused": false, "recovery_attempt": false, "recovered": false, "ships": []}'::jsonb,
+             '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, 
+             '5e9e4502f5090995de566f86', 
+             '[{"core": "5e9e289df35918033d3b2623", "flight": 1, "gridfins": false, "legs": false, "reused": false, "landing_attempt": false, "landing_success": null, "landing_type": null, "landpad": null}]'::jsonb,
+             '{"patch": {"small": "https://images2.imgbox.com/3c/0e/T8iJcSN3_o.png", "large": "https://images2.imgbox.com/40/e3/GypSkayF_o.png"}, "reddit": {"campaign": null, "launch": null, "media": null, "recovery": null}, "flickr": {"small": [], "original": []}, "presskit": null, "webcast": "https://www.youtube.com/watch?v=0a_00nJ_Y88", "youtube_id": "0a_00nJ_Y88", "article": "https://www.space.com/2196-spacex-inaugural-falcon-1-rocket-lost-launch.html", "wikipedia": "https://en.wikipedia.org/wiki/DemoSat"}'::jsonb,
+             true, null),
+            ('5eb87cdaffd86e000604b32b', 2, 'DemoSat', '2007-03-21T01:10:00.000Z',
+             '2007-03-21T13:10:00+12:00', 'hour', null, null, false, 0,
+             '5e9d0d95eda69955f709d1eb', false,
+             '[{"time": 301, "altitude": 289, "reason": "harmonic oscillation leading to premature engine shutdown"}]',
+             false, 'Successful first stage burn and transition to second stage, maximum altitude 289 km, Premature engine shutdown at T+7 min 30 s, Failed to reach orbit, Failed to recover first stage',
+             '{"reused": false, "recovery_attempt": false, "recovered": false, "ships": []}'::jsonb,
+             '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+             '5e9e4502f5090995de566f86',
+             '[{"core": "5e9e289ef359184f103b2624", "flight": 1, "gridfins": false, "legs": false, "reused": false, "landing_attempt": false, "landing_success": null, "landing_type": null, "landpad": null}]'::jsonb,
+             '{"patch": {"small": "https://images2.imgbox.com/4f/e3/I0lkuJ2e_o.png", "large": "https://images2.imgbox.com/5d/af/sPNUd4gJ_o.png"}, "reddit": {"campaign": null, "launch": null, "media": null, "recovery": null}, "flickr": {"small": [], "original": []}, "presskit": null, "webcast": "https://www.youtube.com/watch?v=Lk4zQ2wP-Nc", "youtube_id": "Lk4zQ2wP-Nc", "article": "https://www.space.com/3590-spacex-falcon-1-rocket-fails-reach-orbit.html", "wikipedia": "https://en.wikipedia.org/wiki/DemoSat"}'::jsonb,
+             true, null),
+            ('5eb87cdbffd86e000604b32c', 3, 'Trailblazer', '2008-08-03T03:34:00.000Z',
+             '2008-08-03T15:34:00+12:00', 'hour', null, null, false, 0,
+             '5e9d0d95eda69955f709d1eb', false,
+             '[{"time": 140, "altitude": 35, "reason": "residual stage-1 thrust hit stage-2 during separation"}]',
+             false, 'Residual stage 1 thrust led to collision between stage 1 and stage 2',
+             '{"reused": false, "recovery_attempt": false, "recovered": false, "ships": []}'::jsonb,
+             '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+             '5e9e4502f5090995de566f86',
+             '[{"core": "5e9e289ef3591814873b2625", "flight": 1, "gridfins": false, "legs": false, "reused": false, "landing_attempt": false, "landing_success": null, "landing_type": null, "landpad": null}]'::jsonb,
+             '{"patch": {"small": "https://images2.imgbox.com/3d/86/cnybSJ9t_o.png", "large": "https://images2.imgbox.com/4b/bd/d8UxLh4q_o.png"}, "reddit": {"campaign": null, "launch": null, "media": null, "recovery": null}, "flickr": {"small": [], "original": []}, "presskit": null, "webcast": "https://www.youtube.com/watch?v=v0w9p3U8860", "youtube_id": "v0w9p3U8860", "article": "http://www.spacex.com/news/2013/02/11/falcon-1-flight-3-mission-summary", "wikipedia": "https://en.wikipedia.org/wiki/Trailblazer_(satellite)"}'::jsonb,
+             true, null),
+            ('5eb87cdbffd86e000604b32d', 4, 'RatSat', '2008-09-28T23:15:00.000Z',
+             '2008-09-29T11:15:00+12:00', 'hour', '2008-09-25T00:00:00.000Z',
+             1222300800, false, 0, '5e9d0d95eda69955f709d1eb', true,
+             '[]'::jsonb, false, 'Ratsat was carried to orbit on the first successful orbital launch of any privately funded and developed, liquid-propelled carrier rocket, the SpaceX Falcon 1',
+             '{"reused": false, "recovery_attempt": false, "recovered": false, "ships": []}'::jsonb,
+             '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+             '5e9e4502f5090995de566f86',
+             '[{"core": "5e9e289ef3591855dc3b2626", "flight": 1, "gridfins": false, "legs": false, "reused": false, "landing_attempt": false, "landing_success": null, "landing_type": null, "landpad": null}]'::jsonb,
+             '{"patch": {"small": "https://images2.imgbox.com/e9/c9/T8CfiSYb_o.png", "large": "https://images2.imgbox.com/e0/a7/FNjvFKzx_o.png"}, "reddit": {"campaign": null, "launch": null, "media": null, "recovery": null}, "flickr": {"small": [], "original": []}, "presskit": null, "webcast": "https://www.youtube.com/watch?v=dLQ2tZEH6G0", "youtube_id": "dLQ2tZEH6G0", "article": "https://en.wikipedia.org/wiki/Ratsat", "wikipedia": "https://en.wikipedia.org/wiki/Ratsat"}'::jsonb,
+             true, null),
+            ('5eb87cdcffd86e000604b32e', 5, 'RazakSat', '2009-07-13T03:35:00.000Z',
+             '2009-07-13T15:35:00+12:00', 'hour', null, null, false, 0,
+             '5e9d0d95eda69955f709d1eb', true, '[]'::jsonb, false,
+             null, '{"reused": false, "recovery_attempt": false, "recovered": false, "ships": []}'::jsonb,
+             '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+             '5e9e4502f5090995de566f86',
+             '[{"core": "5e9e289ef35918b10e3b2627", "flight": 1, "gridfins": false, "legs": false, "reused": false, "landing_attempt": false, "landing_success": null, "landing_type": null, "landpad": null}]'::jsonb,
+             '{"patch": {"small": "https://images2.imgbox.com/a7/ba/NBZSw3hG_o.png", "large": "https://images2.imgbox.com/8d/fc/0GdZfW2Y_o.png"}, "reddit": {"campaign": null, "launch": null, "media": null, "recovery": null}, "flickr": {"small": [], "original": []}, "presskit": "http://www.spacex.com/press/2012/12/19/spacex-successfully-concludes-ground-testing-razaksat", "webcast": "https://www.youtube.com/watch?v=yTaIDooc8Og", "youtube_id": "yTaIDooc8Og", "article": "http://www.spacex.com/news/2013/02/12/falcon-1-flight-5", "wikipedia": "https://en.wikipedia.org/wiki/RazakSAT"}'::jsonb,
+             true, null);
+
+            -- Tabela spacex_cores
+            DROP TABLE IF EXISTS raw.spacex_cores CASCADE;
+            CREATE TABLE raw.spacex_cores (
+              id TEXT PRIMARY KEY,
+              serial TEXT,
+              block INTEGER,
+              status TEXT,
+              reuse_count INTEGER,
+              rtls_attempts INTEGER,
+              rtls_landings INTEGER,
+              asds_attempts INTEGER,
+              asds_landings INTEGER,
+              last_update TEXT,
+              launches JSONB,
+              ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            );
+            
+            INSERT INTO raw.spacex_cores (id, serial, block, status, reuse_count, rtls_attempts, rtls_landings, asds_attempts, asds_landings, last_update, launches) VALUES
+            ('5e9e289df35918033d3b2623', 'Merlin1A', null, 'lost', 0, 0, 0, 0, 0, 'Destroyed after failed landing', '["5eb87cd9ffd86e000604b32a"]'::jsonb),
+            ('5e9e289ef359184f103b2624', 'Merlin2A', null, 'lost', 0, 0, 0, 0, 0, 'Destroyed after failed landing', '["5eb87cdaffd86e000604b32b"]'::jsonb),
+            ('5e9e289ef3591814873b2625', 'Merlin3A', null, 'lost', 0, 0, 0, 0, 0, 'Destroyed after failed landing', '["5eb87cdbffd86e000604b32c"]'::jsonb),
+            ('5e9e289ef3591855dc3b2626', 'Merlin4A', null, 'expended', 0, 0, 0, 0, 0, 'First successful orbital launch', '["5eb87cdbffd86e000604b32d"]'::jsonb),
+            ('5e9e289ef35918b10e3b2627', 'Merlin5A', null, 'expended', 0, 0, 0, 0, 0, null, '["5eb87cdcffd86e000604b32e"]'::jsonb);
+
+            -- Tabela spacex_payloads
+            DROP TABLE IF EXISTS raw.spacex_payloads CASCADE;
+            CREATE TABLE raw.spacex_payloads (
+              id TEXT PRIMARY KEY,
+              name TEXT,
+              type TEXT,
+              reused BOOLEAN,
+              launch TEXT,
+              customers JSONB,
+              norad_ids JSONB,
+              nationalities JSONB,
+              manufacturers JSONB,
+              mass_kg NUMERIC,
+              mass_lbs NUMERIC,
+              orbit TEXT,
+              reference_system TEXT,
+              regime TEXT,
+              longitude NUMERIC,
+              semi_major_axis_km NUMERIC,
+              eccentricity NUMERIC,
+              periapsis_km NUMERIC,
+              apoapsis_km NUMERIC,
+              inclination_deg NUMERIC,
+              period_min NUMERIC,
+              lifespan_years NUMERIC,
+              epoch TIMESTAMP,
+              mean_motion NUMERIC,
+              raan NUMERIC,
+              arg_of_pericenter NUMERIC,
+              mean_anomaly NUMERIC,
+              dragon JSONB,
+              ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            );
+            
+            INSERT INTO raw.spacex_payloads (id, name, type, reused, launch, customers, norad_ids, nationalities, manufacturers, mass_kg, mass_lbs, orbit, reference_system, regime, longitude, semi_major_axis_km, eccentricity, periapsis_km, apoapsis_km, inclination_deg, period_min, lifespan_years, epoch, mean_motion, raan, arg_of_pericenter, mean_anomaly, dragon) VALUES
+            ('5eb0e4b7b6c3bb0006eeb1e6', 'FalconSAT-2', 'Satellite', false, '5eb87cd9ffd86e000604b32a', '["DARPA"]'::jsonb, '[]'::jsonb, '["United States"]'::jsonb, '["SSTL"]'::jsonb, 19.5, 42.99, 'LEO', 'geocentric', 'low-earth', null, null, null, 400, 500, 39, null, null, null, null, null, null, null, null, null),
+            ('5eb0e4b7b6c3bb0006eeb1e7', 'DemoSAT', 'Satellite', false, '5eb87cdaffd86e000604b32b', '["DARPA"]'::jsonb, '[]'::jsonb, '["United States"]'::jsonb, '["SpaceX"]'::jsonb, null, null, 'LEO', 'geocentric', 'low-earth', null, null, null, 400, 500, 39, null, null, null, null, null, null, null, null, null),
+            ('5eb0e4b7b6c3bb0006eeb1e8', 'Trailblazer', 'Satellite', false, '5eb87cdbffd86e000604b32c', '["NASA"]'::jsonb, '[]'::jsonb, '["United States"]'::jsonb, '["Space Dev"]'::jsonb, null, null, 'LEO', 'geocentric', 'low-earth', null, null, null, 400, 500, 39, null, null, null, null, null, null, null, null, null),
+            ('5eb0e4b7b6c3bb0006eeb1e9', 'RatSat', 'Satellite', false, '5eb87cdbffd86e000604b32d', '["SpaceX"]'::jsonb, '[33393]'::jsonb, '["United States"]'::jsonb, '["SpaceX"]'::jsonb, 165, 363.76, 'LEO', 'geocentric', 'low-earth', null, 7071.68, 0.0012528, 605, 622, 9.35, 96.8, null, '2008-09-28T00:00:00.000Z', 14.86048586, 221.8085, 91.6518, 235.2029, null),
+            ('5eb0e4b8b6c3bb0006eeb1ea', 'RazakSAT', 'Satellite', false, '5eb87cdcffd86e000604b32e', '["ATSB"]'::jsonb, '[35578]'::jsonb, '["Malaysia"]'::jsonb, '["ATSB"]'::jsonb, 200, 440.92, 'LEO', 'geocentric', 'low-earth', null, 7044.42, 0.001453, 658, 678, 9, 98.2, null, '2009-07-13T00:00:00.000Z', 14.81288587, 223.5545, 92.0232, 238..0543, null);
+
+            -- Tabela spacex_rockets
+            DROP TABLE IF EXISTS raw.spacex_rockets CASCADE;
+            CREATE TABLE raw.spacex_rockets (
+              id TEXT PRIMARY KEY,
+              name TEXT,
+              type TEXT,
+              active BOOLEAN,
+              stages INTEGER,
+              boosters INTEGER,
+              cost_per_launch INTEGER,
+              success_rate_pct INTEGER,
+              first_flight DATE,
+              country TEXT,
+              company TEXT,
+              height JSONB,
+              diameter JSONB,
+              mass JSONB,
+              payload_weights JSONB,
+              first_stage JSONB,
+              second_stage JSONB,
+              engines JSONB,
+              landing_legs JSONB,
+              description TEXT,
+              flickr_images JSONB,
+              wikipedia TEXT,
+              ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            );
+            
+            INSERT INTO raw.spacex_rockets (id, name, type, active, stages, boosters, cost_per_launch, success_rate_pct, first_flight, country, company, height, diameter, mass, payload_weights, first_stage, second_stage, engines, landing_legs, description, flickr_images, wikipedia) VALUES
+            ('5e9d0d95eda69955f709d1eb', 'Falcon 1', 'rocket', false, 2, 0, 6700000, 40, '2006-03-24', 'Republic of the Marshall Islands', 'SpaceX',
+             '{"meters": 22.25, "feet": 73}'::jsonb,
+             '{"meters": 1.68, "feet": 5.5}'::jsonb,
+             '{"kg": 30146, "lb": 66460}'::jsonb,
+             '[{"id": "leo", "name": "Low Earth Orbit", "kg": 450, "lb": 992}]'::jsonb,
+             '{"reusable": false, "engines": 1, "fuel_amount_tons": 0, "burn_time_sec": 169, "thrust_sea_level": {"kN": 420, "lbf": 94347}, "thrust_vacuum": {"kN": 480, "lbf": 107896}}'::jsonb,
+             '{"reusable": false, "engines": 1, "fuel_amount_tons": 0.4, "burn_time_sec": 378, "thrust": {"kN": 31, "lbf": 7000}, "payloads": {"composite_fairing": {"height": {"meters": 3.5, "feet": 11.5}, "diameter": {"meters": 1.5, "feet": 4.9}}, "option_1": "composite fairing"}}'::jsonb,
+             '{"number": 1, "type": "merlin", "version": "1C", "layout": "single", "engine_loss_max": 0, "propellant_1": "liquid oxygen", "propellant_2": "RP-1 kerosene", "thrust_sea_level": {"kN": 420, "lbf": 94347}, "thrust_vacuum": {"kN": 480, "lbf": 107896}, "thrust_to_weight": 96}'::jsonb,
+             '{"number": 0, "material": null}'::jsonb,
+             'The Falcon 1 was an expendable launch system privately developed and manufactured by SpaceX during 2006-2009. On 28 September 2008, Falcon 1 became the first privately-developed liquid-fuel launch vehicle to go into orbit around the Earth.',
+             '["https://imgur.com/DaCfMsj.jpg", "https://imgur.com/azYafd8.jpg"]'::jsonb,
+             'https://en.wikipedia.org/wiki/Falcon_1'),
+            ('5e9d0d95eda69973a809d1ec', 'Falcon 9', 'rocket', true, 2, 0, 50000000, 98, '2010-06-04', 'United States', 'SpaceX',
+             '{"meters": 70, "feet": 229.6}'::jsonb,
+             '{"meters": 3.66, "feet": 12}'::jsonb,
+             '{"kg": 549054, "lb": 1207920}'::jsonb,
+             '[{"id": "leo", "name": "Low Earth Orbit", "kg": 22800, "lb": 50265}, {"id": "gto", "name": "Geosynchronous Transfer Orbit", "kg": 8300, "lb": 18300}, {"id": "mars", "name": "Mars Orbit", "kg": 4020, "lb": 8860}]'::jsonb,
+             '{"reusable": true, "engines": 9, "fuel_amount_tons": 385, "burn_time_sec": 162, "thrust_sea_level": {"kN": 7712, "lbf": 1733282}, "thrust_vacuum": {"kN": 8389, "lbf": 1886026}}'::jsonb,
+             '{"reusable": false, "engines": 1, "fuel_amount_tons": 90, "burn_time_sec": 397, "thrust": {"kN": 934, "lbf": 210000}, "payloads": {"composite_fairing": {"height": {"meters": 13.1, "feet": 43}, "diameter": {"meters": 5.2, "feet": 17.1}}, "option_1": "dragon"}}'::jsonb,
+             '{"number": 9, "type": "merlin", "version": "1D+", "layout": "octaweb", "engine_loss_max": 2, "propellant_1": "liquid oxygen", "propellant_2": "RP-1 kerosene", "thrust_sea_level": {"kN": 845, "lbf": 190000}, "thrust_vacuum": {"kN": 914, "lbf": 205500}, "thrust_to_weight": 180.1}'::jsonb,
+             '{"number": 4, "material": "carbon fiber"}'::jsonb,
+             'Falcon 9 is a two-stage rocket designed and manufactured by SpaceX for the reliable and safe transport of satellites and the Dragon spacecraft into orbit.',
+             '["https://farm1.staticflickr.com/929/28787338307_3453a11a77_b.jpg", "https://farm4.staticflickr.com/3955/32915197674_eee74d81bb_b.jpg", "https://farm1.staticflickr.com/293/32312415025_6841e30bf1_b.jpg", "https://farm1.staticflickr.com/623/23660653516_5b6cb301d1_b.jpg", "https://farm6.staticflickr.com/5518/31579784413_d853331c87_b.jpg", "https://farm1.staticflickr.com/745/32394687645_a9c54a34ef_b.jpg"]'::jsonb,
+             'https://en.wikipedia.org/wiki/Falcon_9');
+
+            -- Tabela nasa_solar_events
+            DROP TABLE IF EXISTS raw.nasa_solar_events CASCADE;
+            CREATE TABLE raw.nasa_solar_events (
+              activityID TEXT PRIMARY KEY,
+              startTime TIMESTAMP,
+              peakTime TIMESTAMP,
+              endTime TIMESTAMP,
+              classType TEXT,
+              sourceLocation TEXT,
+              activeRegionNum BIGINT,
+              link TEXT,
+              ingestion_timestamp TIMESTAMP DEFAULT NOW()
+            );
+            
+            INSERT INTO raw.nasa_solar_events (activityID, startTime, peakTime, endTime, classType, sourceLocation, activeRegionNum, link) VALUES
+            ('2010-01-01T00:00:00-FLR-001', '2010-01-01T00:00:00Z', '2010-01-01T01:00:00Z', '2010-01-01T02:00:00Z', 'M1.0', 'N12E34', 11042, 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/1'),
+            ('2010-02-14T12:00:00-FLR-001', '2010-02-14T12:00:00Z', '2010-02-14T13:30:00Z', '2010-02-14T15:00:00Z', 'C3.2', 'S15W20', 11045, 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/2'),
+            ('2010-03-20T18:00:00-FLR-001', '2010-03-20T18:00:00Z', '2010-03-20T19:15:00Z', '2010-03-20T20:30:00Z', 'M2.5', 'N05E15', 11056, 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/3'),
+            ('2010-04-05T08:00:00-FLR-001', '2010-04-05T08:00:00Z', '2010-04-05T09:30:00Z', '2010-04-05T11:00:00Z', 'X1.0', 'S20W10', 11066, 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/4'),
+            ('2010-05-12T14:00:00-FLR-001', '2010-05-12T14:00:00Z', '2010-05-12T15:45:00Z', '2010-05-12T17:30:00Z', 'C8.9', 'N18E45', 11076, 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/5');
+
+            -- Verificar dados inseridos
+            SELECT 'spacex_launches: ' || count(*)::text as count FROM raw.spacex_launches
+            UNION ALL
+            SELECT 'spacex_cores: ' || count(*)::text FROM raw.spacex_cores
+            UNION ALL
+            SELECT 'spacex_payloads: ' || count(*)::text FROM raw.spacex_payloads
+            UNION ALL
+            SELECT 'spacex_rockets: ' || count(*)::text FROM raw.spacex_rockets
+            UNION ALL
+            SELECT 'nasa_solar_events: ' || count(*)::text FROM raw.nasa_solar_events;
+          EOF
+
+      - name: Configure dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << 'EOF'
+          dbt_spacex:
+            target: docker
+            outputs:
+              docker:
+                type: postgres
+                host: localhost
+                port: 5432
+                user: admin
+                password: admin123
+                dbname: spacex_db
+                schema: analytics_dev
+                threads: 4
+          EOF
+
+      - name: dbt debug
+        run: |
+          cd dbt_spacex
+          dbt debug
+
       - name: dbt seed
         run: |
           cd dbt_spacex
           dbt seed --full-refresh
 
-      - name: dbt build
+      - name: dbt run (staging models)
         run: |
           cd dbt_spacex
-          dbt build --threads 4
+          dbt run --select staging --full-refresh
 
-      - name: dbt test
+      - name: dbt run (mart models)
         run: |
           cd dbt_spacex
-          dbt test --threads 4
+          dbt run --select marts --full-refresh
+
+      - name: dbt test (schema tests)
+        run: |
+          cd dbt_spacex
+          dbt test --exclude source:* --exclude test_type: freshness
 
       - name: dbt docs generate
         run: |
           cd dbt_spacex
           dbt docs generate
 
-      - name: Show dbt docs index.html
+      - name: Upload dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-artifacts
+          path: |
+            dbt_spacex/target/
+            dbt_spacex/logs/
+          retention-days: 7
+
+      - name: Show dbt docs info
         run: |
           echo "dbt docs generated at dbt_spacex/target/index.html"
+          ls -la dbt_spacex/target/
