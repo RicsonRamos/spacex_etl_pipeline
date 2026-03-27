@@ -60,16 +60,19 @@ jobs:
             echo "⏳ Waiting for Postgres... attempt $i/30"
             sleep 2
           done
+          
+          export PGPASSWORD=admin123
+          psql -h localhost -U admin -d spacex_db -c "SELECT version();"
 
       - name: Create raw schema and mock data
-        env:
-          PGPASSWORD: admin123
         run: |
-          psql -h localhost -U admin -d spacex_db << 'EOF'
+          export PGPASSWORD=admin123
+          
+          # Criar arquivo SQL
+          cat > /tmp/setup.sql << 'SQLEOF'
           DROP SCHEMA IF EXISTS raw CASCADE;
           CREATE SCHEMA raw;
-
-          -- TABELA: spacex_launches (TODAS as colunas)
+          
           CREATE TABLE raw.spacex_launches (
             id TEXT PRIMARY KEY, flight_number INTEGER, name TEXT,
             date_utc TIMESTAMP, date_local TIMESTAMP, date_precision TEXT,
@@ -105,7 +108,6 @@ jobs:
            '[]'::jsonb, '[]'::jsonb, '5e9e4502f5090995de566f86',
            '[]'::jsonb, '{}'::jsonb, true, null, NOW());
 
-          -- TABELA: spacex_cores (TODAS as colunas)
           CREATE TABLE raw.spacex_cores (
             id TEXT PRIMARY KEY, serial TEXT, block INTEGER, status TEXT,
             reuse_count INTEGER, rtls_attempts INTEGER, rtls_landings INTEGER,
@@ -121,7 +123,6 @@ jobs:
           ('5e9e289ef3591855dc3b2626', 'Merlin4A', null, 'expended', 0, 0, 0, 0, 0,
            'First success', '["5eb87cdbffd86e000604b32d"]'::jsonb, NOW());
 
-          -- TABELA: spacex_payloads
           CREATE TABLE raw.spacex_payloads (
             id TEXT PRIMARY KEY, name TEXT, type TEXT, reused BOOLEAN,
             launch TEXT, customers JSONB, norad_ids JSONB, nationalities JSONB,
@@ -139,7 +140,6 @@ jobs:
            '["United States"]'::jsonb, '["SpaceX"]'::jsonb, 165, 363.76, 'LEO',
            'geocentric', 'low-earth', NOW());
 
-          -- TABELA: spacex_rockets (TODAS as colunas)
           CREATE TABLE raw.spacex_rockets (
             id TEXT PRIMARY KEY, name TEXT, type TEXT, active BOOLEAN,
             stages INTEGER, boosters INTEGER, cost_per_launch INTEGER,
@@ -172,28 +172,41 @@ jobs:
            '["https://farm1.staticflickr.com/929/28787338307_3453a11a77_b.jpg"]'::jsonb,
            'https://en.wikipedia.org/wiki/Falcon_9', NOW());
 
-          -- TABELA: nasa_solar_events (TODAS as colunas)
           CREATE TABLE raw.nasa_solar_events (
             "activityID" TEXT PRIMARY KEY, "startTime" TIMESTAMP, "peakTime" TIMESTAMP,
             "endTime" TIMESTAMP, "classType" TEXT, "sourceLocation" TEXT,
-            "activeRegionNum" BIGINT, "link" TEXT, catalog TEXT,
+            "activeRegionNum" BIGINT, "link" TEXT, catalog TEXT, "cmeAnalyses" JSONB,
             ingestion_timestamp TIMESTAMP DEFAULT NOW()
           );
           
           INSERT INTO raw.nasa_solar_events VALUES 
           ('2010-01-01T00:00:00-FLR-001', '2010-01-01T00:00:00Z', '2010-01-01T01:00:00Z',
            '2010-01-01T02:00:00Z', 'M1.0', 'N12E34', 11042,
-           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/1', 'SWPC', NOW()),
+           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/1', 'SWPC',
+           '[{"speed": 500}]'::jsonb, NOW()),
           ('2010-02-14T12:00:00-FLR-001', '2010-02-14T12:00:00Z', '2010-02-14T13:30:00Z',
            '2010-02-14T15:00:00Z', 'C3.2', 'S15W20', 11045,
-           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/2', 'SWPC', NOW()),
+           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/2', 'SWPC',
+           '[{"speed": 300}]'::jsonb, NOW()),
           ('2010-03-20T18:00:00-FLR-001', '2010-03-20T18:00:00Z', '2010-03-20T19:15:00Z',
            '2010-03-20T20:30:00Z', 'M2.5', 'N05E15', 11056,
-           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/3', 'SWPC', NOW());
+           'https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/FLR/3', 'SWPC',
+           '[{"speed": 800}]'::jsonb, NOW());
 
-          SELECT 'Tabelas criadas com sucesso!' as status;
-          \dt raw.*;
-          EOF
+          SELECT 'Tabelas criadas:' as status;
+          SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'raw';
+          SQLEOF
+          
+          echo "🚀 Executando script SQL..."
+          psql -h localhost -U admin -d spacex_db -f /tmp/setup.sql
+          
+          if [ $? -ne 0 ]; then
+            echo "❌ Erro ao executar SQL"
+            exit 1
+          fi
+          
+          echo "✅ Dados mockados criados!"
+          psql -h localhost -U admin -d spacex_db -c "\dt raw.*"
 
       - name: Create dbt profile for CI
         run: |
