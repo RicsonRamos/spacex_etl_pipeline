@@ -28,7 +28,9 @@ jobs:
         PYTHONPATH: .
       run: |
         python -m pytest ingestion_engine/tests/ -v \
-          --cov=ingestion_engine/src \
-          --cov=ingestion_engine/main \
+          --cov=src \
+          --cov=config \
+          --cov=main \
+          --cov=ingestion_engine/utils \
           --cov-report=term-missing \
           --cov-fail-under=80
