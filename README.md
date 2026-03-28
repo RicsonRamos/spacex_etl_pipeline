@@ -111,6 +111,136 @@ Este projeto implementa um pipeline de dados robusto que transforma dados brutos
 
 ---
 
+**Contrato de Dados: Inputs & Outputs**
+
+Esta seção define explicitamente os inputs, outputs e efeitos colaterais da pipeline — essencial para produção, auditoria e manutenção.
+
+**Fluxo Geral**
+
+```bash
+Params + ENV
+   ↓
+validate_environment
+   ↓
+ingest_data
+   ↓
+PostgreSQL (Bronze)
+   ↓
+dbt (Silver → Gold)
+   ↓
+Metabase / DAG downstream
+```
+
+**DAG: spacex_full_pipeline**
+
+**Inputs da DAG**
+
+Parâmetros (Airflow)
+| Parâmetro  | Tipo   | Descrição    |
+| ---------- | ------ | ------------ |
+| start_date | string | Data inicial |
+| end_date   | string | Data final   |
+| api_source | string | URL da API   |
+
+Variáveis de Ambiente
+| Variável          | Obrigatória |
+| ----------------- | ----------- |
+| POSTGRES_USER     | ✅           |
+| POSTGRES_PASSWORD | ✅           |
+| POSTGRES_DB       | ✅           |
+| NASA_API_KEY      | ✅           |
+| ALERT_EMAIL       | ❌           |
+| SLACK_WEBHOOK_URL | ❌           |
+
+**Tasks da Pipeline**
+
+validate_environment
+- Inputs
+  - ENV vars
+  - params
+- Output
+  - Validação OK / erro
+
+ingest_data (Docker)
+- Inputs
+  - API SpaceX
+  - Datas
+  - DATABASE_URL
+- Processo
+  - Extract → Transform → Load
+- Output
+  - bronze.spacex_launches
+
+dbt_deps
+- Output
+  - Dependências dbt instaladas
+
+dbt_freshness
+- Valida
+  - Atualização dos dados
+
+dbt_run
+- Transforma
+  - Bronze → Silver
+  - Silver → Gold
+
+dbt_test
+
+- Valida
+  - Qualidade dos dados
+- Regra crítica
+  -  Falha interrompe pipeline
+
+dbt_docs_generate
+
+- Output
+  - Documentação dbt
+  
+trigger_other_pipeline
+- Ação
+  - Dispara outra DAG
+
+**Scripts Python**
+main.py
+- Inputs
+- APIs
+- Config
+- ENV
+
+Output
+- Dados no PostgreSQL
+
+api_client.py
+- Responsabilidade
+  - Requisições HTTP com retry
+extractors
+- Output
+  - DataFrames
+loaders
+Output
+- Persistência no banco
+
+Camadas de Dados
+  - Bronze
+  - Dados crus da API
+- Silver
+  - Dados limpos e padronizados
+- Gold
+  - KPIs e métricas
+
+Observabilidade
+- Logs JSON
+- Alertas Slack/Email
+- SLA + retries
+**Matriz de Falhas**
+| Etapa     | Impacto            |
+| --------- | ------------------ |
+| ingest    | Sem dados          |
+| dbt_test  | Pipeline bloqueado |
+| freshness | Dados inválidos    |
+
+
+
 ## Estrutura de Dados (Medallion)
 
 ### Bronze (Raw Data)
