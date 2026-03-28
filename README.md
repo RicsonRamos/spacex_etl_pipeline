@@ -155,92 +155,72 @@ Variáveis de Ambiente
 | ALERT_EMAIL       | ❌           |
 | SLACK_WEBHOOK_URL | ❌           |
 
-**Tasks da Pipeline**
+## Tasks da Pipeline
 
-validate_environment
-- Inputs
-  - ENV vars
-  - params
-- Output
-  - Validação OK / erro
+| Task | Inputs | Processo/Validação | Output |
+|------|--------|-------------------|--------|
+| **validate_environment** | ENV vars, params | Validação de configurações | OK / erro |
+| **ingest_data** (Docker) | API SpaceX, Datas, DATABASE_URL | Extract → Transform → Load | `bronze.spacex_launches` |
+| **dbt_deps** | — | Instalação de dependências | Pacotes dbt instalados |
+| **dbt_freshness** | Tabelas Bronze | Valida atualização dos dados | Relatório de frescor |
+| **dbt_run** | Bronze/Silver | Transformação: Bronze → Silver → Gold | Tabelas Silver/Gold |
+| **dbt_test** | Modelos dbt | Valida qualidade dos dados | passed / failed |
+| **dbt_docs_generate** | Modelos dbt | Gera documentação | Site estático em `/target` |
+| **trigger_other_pipeline** | DAG concluída | Dispara pipeline downstream | Próxima DAG executada |
 
-ingest_data (Docker)
-- Inputs
-  - API SpaceX
-  - Datas
-  - DATABASE_URL
-- Processo
-  - Extract → Transform → Load
-- Output
-  - bronze.spacex_launches
+---
 
-dbt_deps
-- Output
-  - Dependências dbt instaladas
+## Scripts Python
 
-dbt_freshness
-- Valida
-  - Atualização dos dados
+### `main.py`
+| Aspecto | Descrição |
+|---------|-----------|
+| **Inputs** | APIs, Config, ENV |
+| **Output** | Dados no PostgreSQL |
 
-dbt_run
-- Transforma
-  - Bronze → Silver
-  - Silver → Gold
+### `api_client.py`
+| Aspecto | Descrição |
+|---------|-----------|
+| **Responsabilidade** | Requisições HTTP com retry |
+| **Output** | DataFrames |
 
-dbt_test
+### `extractors`
+| Aspecto | Descrição |
+|---------|-----------|
+| **Output** | DataFrames processados |
 
-- Valida
-  - Qualidade dos dados
-- Regra crítica
-  -  Falha interrompe pipeline
+### `loaders`
+| Aspecto | Descrição |
+|---------|-----------|
+| **Output** | Persistência no banco |
 
-dbt_docs_generate
+---
 
-- Output
-  - Documentação dbt
-  
-trigger_other_pipeline
-- Ação
-  - Dispara outra DAG
+## Camadas de Dados
 
-**Scripts Python**
-main.py
-- Inputs
-- APIs
-- Config
-- ENV
+| Camada | Descrição |
+|--------|-----------|
+| **Bronze** | Dados crus da API |
+| **Silver** | Dados limpos e padronizados |
+| **Gold** | KPIs e métricas de negócio |
 
-Output
-- Dados no PostgreSQL
+---
 
-api_client.py
-- Responsabilidade
-  - Requisições HTTP com retry
-extractors
-- Output
-  - DataFrames
-loaders
-Output
-- Persistência no banco
+## Observabilidade
 
-Camadas de Dados
-  - Bronze
-  - Dados crus da API
-- Silver
-  - Dados limpos e padronizados
-- Gold
-  - KPIs e métricas
+- **Logs JSON** estruturados
+- **Alertas** Slack/Email
+- **SLA** + retries exponenciais
 
-Observabilidade
-- Logs JSON
-- Alertas Slack/Email
-- SLA + retries
-**Matriz de Falhas**
-| Etapa     | Impacto            |
-| --------- | ------------------ |
-| ingest    | Sem dados          |
-| dbt_test  | Pipeline bloqueado |
-| freshness | Dados inválidos    |
+---
+
+## Matriz de Falhas
+
+| Etapa | Impacto | Mitigação |
+|-------|---------|-----------|
+| `ingest` | Sem dados | Retries + alerta |
+| `dbt_test` | Pipeline bloqueado | Falha crítica, não prossegue |
+| `freshness` | Dados inválidos | Alerta + verificação manual |
 
 
 
