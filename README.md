@@ -70,6 +70,9 @@ Este projeto implementa um pipeline de dados robusto que transforma dados brutos
 
 ## Arquitetura
 
+ Aqui está o diagrama de arquitetura completo e formatado corretamente:
+
+```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   APIs Externas │     │   Apache Airflow│     │    PostgreSQL   │
 │  SpaceX / NASA  │────▶│   (Orquestração)│────▶│   (Data Warehouse)│
@@ -86,7 +89,7 @@ Este projeto implementa um pipeline de dados robusto que transforma dados brutos
                        │  GitHub Actions │
                        │   (CI/CD Tests) │
                        └─────────────────┘
-
+```
 
 **Fluxo de Dados:**
 1. **Bronze** → Ingestão raw via Python (APIs SpaceX/NASA)
