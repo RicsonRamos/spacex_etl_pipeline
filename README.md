@@ -599,4 +599,4 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para de
 - LinkedIn: [linkedin.com/in/ricsonramos](https://linkedin.com/in/ricsonramos)
 
 > ⭐ **Star** este repositório se ele te ajudou!
-```
+
