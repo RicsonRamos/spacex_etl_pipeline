@@ -69,3 +69,12 @@ gold/
 Thumbs.db
 
 test-ci-local.ps1
+# dbt artifacts
+target/
+dbt_packages/
+logs/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
