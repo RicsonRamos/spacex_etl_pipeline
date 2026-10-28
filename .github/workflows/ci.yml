@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: '3.11'
     
     - name: Install dependencies
       run: |
@@ -24,6 +24,7 @@ jobs:
         pip install pytest pandas requests sqlalchemy python-dotenv
     
     - name: Test with pytest
+      env:
+        PYTHONPATH: .
       run: |
-        cd ingestion_engine
-        python -m pytest tests/ -v
+        python -m pytest ingestion_engine/tests/ -v
